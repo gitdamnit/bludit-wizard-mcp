@@ -62,7 +62,7 @@ export function registerIntelligenceTools(server: McpServer, ctx: ToolContext): 
           .describe(`Maximum pages to consider. Default ${DEFAULT_SCAN_LIMIT}, maximum ${MAX_SCAN_LIMIT}.`),
         limit: z.number().int().min(1).max(100).optional().describe('Maximum matches to return. Default 20.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async (args) =>
       toResult(() =>
@@ -152,7 +152,7 @@ export function registerIntelligenceTools(server: McpServer, ctx: ToolContext): 
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.'),
         key: z.string().min(1).describe('Page key to summarize.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site, key }) =>
       toResult(() =>
@@ -185,7 +185,7 @@ export function registerIntelligenceTools(server: McpServer, ctx: ToolContext): 
         limit: z.number().int().min(1).max(50).optional().describe('Maximum results. Default 10.'),
         scan_limit: z.number().int().min(1).max(MAX_SCAN_LIMIT).optional().describe('Maximum pages to compare against.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site, key, limit, scan_limit }) =>
       toResult(() =>

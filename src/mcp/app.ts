@@ -24,9 +24,43 @@ import { REQUIRED_SCOPES, hasScopes, scopesForTool } from '../shared/scopes.js';
 import { requiredScopesForTools, toolNamesFromBody } from './routing.js';
 import { errorSummary, logger } from '../shared/log.js';
 import { enforceRateLimit } from '../shared/rate-limit.js';
+import { patClientId, verifyPat } from '../shared/pats.js';
 import { trimBase, type AuthProps, type McpEnv } from '../shared/env.js';
 import { createMcpServer } from './server.js';
 import { buildToolContext } from './tools/context.js';
+
+/**
+ * Compatibility adapter: tolerate an `Accept` header that omits
+ * `text/event-stream`.
+ *
+ * The MCP Streamable HTTP specification tells clients to send
+ * `Accept: application/json, text/event-stream` on POST, and the SDK transport
+ * enforces it with `406 Not Acceptable`. A client that sends only
+ * `application/json`, only `text/event-stream`, or `*` is therefore refused — a
+ * failure that is opaque to the user and indistinguishable from a server bug.
+ *
+ * This widens the accepted set without changing what is served: the reply is
+ * still a single JSON body (`enableJsonResponse`). A client that understands
+ * *only* server-sent events is still not served, and the compatibility matrix
+ * says so rather than implying otherwise.
+ *
+ * Measured before and after, in `test/integration/protocol-surface.test.ts`.
+ */
+export function withTolerantAccept(request: Request): Request {
+  const accept = request.headers.get('accept') ?? '';
+  const lowered = accept.toLowerCase();
+  // The transport needs *both* content types offered, not merely one of them.
+  if (lowered.includes('application/json') && lowered.includes('text/event-stream')) return request;
+
+  const headers = new Headers(request.headers);
+  headers.set(
+    'accept',
+    `application/json, text/event-stream${accept.trim() === '' ? '' : `, ${accept.trim()}`}`
+  );
+  // The body is not carried over: every call passes `parsedBody`, and GET has no
+  // body to lose.
+  return new Request(request.url, { method: request.method, headers });
+}
 
 export function createResourceServer(env: McpEnv): OAuthResourceServer<McpEnv, AuthProps> {
   return new OAuthResourceServer<McpEnv, AuthProps>({
@@ -36,7 +70,34 @@ export function createResourceServer(env: McpEnv): OAuthResourceServer<McpEnv, A
       resource_name: 'Bludit Wizard MCP'
     },
     requiredScopes: [...REQUIRED_SCOPES],
-    validateToken: (boundEnv) => boundEnv.AUTH_SERVER.validateToken,
+    /**
+     * Two credential types, one authorization path.
+     *
+     * A personal access token is checked first, then an OAuth access token. Both
+     * produce the same shape, and everything downstream — the HTTP scope
+     * pre-flight, the per-tool scope checks, the tenancy rules, the audit log —
+     * is identical. The token's `clientId` is `pat:<id>` so the audit trail shows
+     * which credential acted.
+     */
+    validateToken: (boundEnv) => async (resource, token) => {
+      const pat = await verifyPat(boundEnv.DB, resource, token);
+      if (pat) {
+        return {
+          props: {
+            userId: pat.userId,
+            email: '',
+            displayName: '',
+            credentialKeyVersion: 1
+          },
+          audience: pat.audience,
+          expiresAt: pat.expiresAt,
+          scope: pat.scopes,
+          userId: pat.userId,
+          clientId: patClientId(pat.id)
+        };
+      }
+      return boundEnv.AUTH_SERVER.validateToken(resource, token);
+    },
     handler: {
       fetch: handleMcpRequest
     }
@@ -107,7 +168,8 @@ async function handleMcpRequest(
 
   try {
     await server.connect(transport);
-    return await transport.handleRequest(request, parsedBody === undefined ? {} : { parsedBody });
+    const acceptable = withTolerantAccept(request);
+    return await transport.handleRequest(acceptable, parsedBody === undefined ? {} : { parsedBody });
   } catch (error) {
     logger.error('mcp.request.failed', { ...errorSummary(error) });
     return Response.json(

@@ -41,8 +41,8 @@ this project.
 
 ```
 # Hermetic — unit, integration and compatibility
-Test Files  18 passed (18)
-     Tests  324 passed (324)
+Test Files  22 passed (22)
+     Tests  378 passed (378)
 
 # Live — real Bludit Community and Pro
 Test Files  1 passed (1)
@@ -52,14 +52,14 @@ Test Files  1 passed (1)
     9 passed
 ```
 
-**357 tests, all passing.** No test is skipped or expected to fail.
+**411 tests, all passing.** No test is skipped or expected to fail.
 
 ### By suite
 
 | Suite | Files | Tests | Kind | Needs |
 |---|---|---|---|---|
-| `test/unit/` | 10 | 210 | Pure logic, Node only | Nothing |
-| `test/integration/` | 7 | 105 | Two Workers in workerd, real Service Binding, real HTTP | Nothing |
+| `test/unit/` | 11 | 222 | Pure logic, Node only | Nothing |
+| `test/integration/` | 10 | 147 | Two Workers in workerd, real Service Binding, real HTTP | Nothing |
 | `test/compat/` | 1 | 9 | Five modelled Bludit variants | Nothing |
 | `test/live/` | 1 | 24 | Real Bludit Community and Pro in containers | Docker, `PRO_ZIP` for Pro |
 | `test/browser/` | 1 | 9 | Playwright, headless Chromium, same in-process Workers | A cached Chromium build |
@@ -82,6 +82,7 @@ because a suite that needs a live system stops being run.
 | `diff.test.ts` | 14 | Field diffing, unified diff, large-rewrite fallback, patch truncation, content summarisation |
 | `production-config.test.ts` | 13 | The **deployable** configs: SSRF flag set, insecure site URLs off, rate limiting on, no secret in a var, issuer and resource agree, no route, no deploy step in CI |
 | `capabilities.test.ts` | 10 | Capability reporting for every working/broken endpoint combination, edition honesty |
+| `pats.test.ts` | 12 | Personal access token shape, digest determinism, scope parsing, and that a summary never carries the token or its digest |
 
 ### Integration tests
 
@@ -94,6 +95,9 @@ because a suite that needs a live system stops being run.
 | `site-connect.test.ts` | 11 | Pairing by ownership file and by Wizard HMAC, missing proof, wrong challenge, challenge reuse, URL binding, encryption at rest read out of D1, invalid proof |
 | `production-shape.test.ts` | 7 | Boot under `global_fetch_strictly_public`, CIMD advertisement, resource metadata, full authorization, loopback refusal, cloud-metadata refusal |
 | `smoke.test.ts` | 3 | Both Workers boot, schema applies, discovery chain works |
+| `protocol-surface.test.ts` | 22 | The facts client compatibility turns on: the `401` challenge, no session id, protocol-revision negotiation with old and new clients, four `Accept` variants, CORS behaviour, and that all 19 tools carry all four annotation hints |
+| `pats.test.ts` | 16 | Personal access tokens end to end: creation through the UI shown once, digest-only storage, bearer use, the same scope enforcement and tenancy as an OAuth token, no delete, review-before-write, immediate revocation, expiry, and per-token audit |
+| `client-journey.test.ts` | 4 | The nine-step journey, walked twice — once per credential type |
 
 #### Security-control confirmations
 
@@ -106,6 +110,27 @@ claims together, rather than reconstructing each from a feature test.
 | Grant revocation | Revoked client's token → `401` while another client's still works; refresh after revocation refused; per-client revocation confirmed in the UI listing |
 | Cross-account isolation | 12 probes with a second account's site id, each `not_found` and never `forbidden`; no label, URL or site title in any response; the site is unchanged afterwards; a proposal is not applicable by another account and remains applicable to its owner |
 | SSRF | Nine reserved/internal/credential-bearing URLs refused with the specific reason; three scheme refusals; and a test that documents that Miniflare does not enforce the platform egress flag locally |
+
+## Client compatibility evidence
+
+The twelve-client requirement is documented in
+`docs/CLIENT_COMPATIBILITY_MATRIX.md`, with the analysis in
+`CLIENT_GAP_ANALYSIS.md`. The test evidence is:
+
+| Claim | Where it is asserted |
+|---|---|
+| All 19 tools declare `readOnlyHint` **and** `destructiveHint` | `protocol-surface.test.ts` |
+| `401` carries `resource_metadata` and a scope; no client-side change needed | `protocol-surface.test.ts` |
+| Four `Accept` header shapes work, where only one used to | `protocol-surface.test.ts` |
+| Protocol revisions 2024-11-05 through 2026-07-28 are all served | `protocol-surface.test.ts` |
+| No `Mcp-Session-Id` is ever issued | `protocol-surface.test.ts` |
+| No legacy `/sse` endpoint; Streamable HTTP only | `protocol-surface.test.ts` |
+| The nine-step journey works with an OAuth token **and** a personal access token | `client-journey.test.ts` |
+| A personal access token gets the same scope enforcement, tenancy, safety gates and audit trail as an OAuth token | `pats.test.ts` |
+
+**What this does not prove: that any client works.** No client product has been
+run against this server. Every "tested version" cell in the compatibility matrix
+says `not tested`, and four surfaces are recorded as unsupported or unknown.
 
 ## Live tests
 
@@ -150,6 +175,8 @@ Eleven, all fixed, all with regression tests. Full detail in
 
 | # | Severity | Defect | Found by |
 |---|---|---|---|
+| 0 | High | Thirteen of nineteen tools omitted `destructiveHint`, which Claude's connector documentation requires on **every** tool | The protocol-surface probe written for the client-compatibility requirement |
+| 0b | High | The transport answered `406` for every `Accept` header except the exact specification-compliant one | Same probe |
 | 1 | High | IPv4-mapped (`::ffff:`) and NAT64/6to4 IPv6 addresses were **accepted** by the SSRF policy | Unit tests |
 | 2 | High | The IPv6 prefix matcher double-shifted, so every IPv6 range check was wrong | Unit tests |
 | 3 | High | `tags` is a string on the wire; two tools called `.some()` on it | **Live tests** |
@@ -163,7 +190,10 @@ Eleven, all fixed, all with regression tests. Full detail in
 | 11 | Low | Dead code: unused helpers, a vestigial parameter, two pointless re-exports | Review |
 
 Numbers 3, 6 and 7 are the argument for keeping three different kinds of test. Each
-was invisible to the layer that was passing.
+was invisible to the layer that was passing. Numbers 0 and 0b are the argument for
+reading a client's official requirements and then asserting the server against
+them: both were invisible to every test that existed before the compatibility
+requirement, and the first of them would have blocked Claude outright.
 
 ## Worker bundle sizes
 

@@ -386,3 +386,122 @@ headline percentage.
 is more useful than a claim of completeness — and it forced rate limiting to be
 implemented rather than left as a footnote, because it was written down as a
 blocker.
+
+---
+
+## ADR-020 — Personal access tokens, for the clients that cannot do OAuth
+
+**Context.** The client-compatibility requirement names twelve environments.
+Official documentation shows that at least four resolved surfaces cannot present
+an OAuth token: GitHub Copilot's cloud agent and code review ("do not currently
+support remote MCP servers that leverage OAuth for authentication and
+authorization"), Mistral's Vibe Code CLI ("does not yet support MCP servers that
+require OAuth authentication"), Empryo (static headers only), and JetBrains AI
+Assistant (remote authentication undocumented). Against an OAuth-only server they
+cannot connect at all — not to this server, and not to any conforming remote MCP
+server that requires authentication.
+
+**Decision.** Add a personal access token: a user-created, labelled, scoped,
+expiring, immediately-revocable bearer credential owned by one account.
+
+**Consequence.** Those four surfaces become reachable, which they were not before.
+The cost is real and is stated rather than buried: a token is a long-lived bearer
+credential that a user will paste into a client configuration file. Four things
+bound the damage — the scopes are chosen by the user, expiry is enforced on every
+request, revocation takes effect on the very next request (better than the OAuth KV
+path, which can lag), and the audit log records `pat:<id>` so a specific token can
+be identified and revoked. A token cannot delete a page, because no tool can, and
+it passes through the same review-before-write gate.
+
+The alternative was to leave four named targets unserviceable. That would have met
+the letter of the requirement while failing its purpose.
+
+**Reconsideration criteria.** If every target client gains OAuth support, remove
+the feature. It exists to serve clients, not as a permanent credential type.
+
+**Alternatives considered.** Rejecting the requirement for those clients (fails the
+requirement); a shared per-site API key (worse: not per-user, not revocable per
+person, no scope); proxying through a vendor-hosted credential (a new external
+service and a new approval).
+
+---
+
+## ADR-021 — Tolerate a non-conformant `Accept` header
+
+**Context.** The MCP Streamable HTTP specification requires a client to send
+`Accept: application/json, text/event-stream` on POST. The SDK transport enforces
+it, so anything else — `application/json`, `text/event-stream`, or `*` — returned
+`406 Not Acceptable`. Measured on this server before the change and recorded in
+`test/integration/protocol-surface.test.ts`.
+
+**Decision.** Normalise the header in the resource server before the transport sees
+it: `withTolerantAccept()` ensures both content types are offered.
+
+**Consequence.** Four header shapes now work instead of one. The behaviour is
+strictly more permissive — nothing that worked before stops working — and the
+response is still a single JSON body, so a client that understands *only*
+server-sent events is still not served. That residual is documented rather than
+implied away.
+
+A stricter reading would be to refuse and tell the user their client is
+non-conformant. That is defensible, but a `406` is an opaque failure that looks
+like a server bug, and the compatibility goal is reachable for the cost of a
+fifteen-line adapter.
+
+**Alternatives considered.** Leaving the `406` (simplest, worst experience);
+switching to SSE responses (changes the response contract for everyone).
+
+---
+
+## ADR-022 — One server, no stdio bridge, no per-client backends
+
+**Context.** Twelve target clients could plausibly be served by twelve
+integrations, or by a bridge for clients that only speak stdio.
+
+**Decision.** Serve every client from the one remote Streamable HTTP server and the
+one authorization service. Build no stdio bridge. Build no per-client backend.
+
+**Consequence.** The research justifies this rather than the preference: every
+remote surface among the twelve documents native remote MCP support, or a native
+connector (Claude Desktop), so a bridge would be new code with no client to serve.
+The single stdio-only surface, the Junie IDE plugin, fails for a different reason —
+it documents no token support at all — and a bridge would not fix it.
+
+The cost is that clients which fall back to legacy SSE get a JSON response rather
+than a stream. Four clients support SSE as a fallback; all four prefer Streamable
+HTTP, and one (Gemini Enterprise) refuses SSE outright.
+
+**Alternatives considered.** A stdio bridge (no client needs it); per-client
+adapters (rejected by the requirement itself, and twelve code paths to keep
+secure); a legacy `/sse` endpoint (deprecated in the specification, and one target
+refuses it).
+
+---
+
+## ADR-023 — Native Bludit Wizard PHP remains a first-class independent product
+
+**Context.** A binding requirement states that the native PHP plugin must keep
+working inside Bludit with configurable OpenAI-compatible providers, without MCP,
+Cloudflare, or any particular AI vendor.
+
+**Decision.** Reaffirm and hold the existing position: the PHP plugin is not
+modified, is not a dependency of this server, and this server is not a dependency
+of it. It runs its own inference with the user's own provider key; this server runs
+no inference. The only relationship is optional and one-directional — when the
+plugin is present, this server can use its pairing endpoint and report it as a
+capability.
+
+**Consequence.** A Bludit user can adopt the plugin, this server, both, or neither,
+and nothing breaks. The hosted server works through the official Bludit API alone,
+so the plugin is never required. Where this server would benefit from an interface
+the plugin does not expose, the contract is proposed in
+`PHP_WIZARD_INTEGRATION.md` rather than invented in PHP code.
+
+This was already the design; it is recorded here as an explicit decision because
+the client-compatibility requirement restates it, and a decision that is only
+implicit is one that gets eroded by the next change.
+
+**Alternatives considered.** Making the plugin a prerequisite for Wizard tools
+(couples the products and contradicts the requirement); shipping inference in the
+hosted server (a cost, a privacy change, and a second provider relationship for the
+user).

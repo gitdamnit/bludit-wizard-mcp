@@ -60,7 +60,7 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
       inputSchema: {
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site }) =>
       toResult(() =>
@@ -96,7 +96,7 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
           .optional()
           .describe('Page size. -1 returns every matching page. Defaults to the site API plugin setting (usually 15).')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async (args) =>
       toResult(() =>
@@ -144,7 +144,7 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.'),
         key: z.string().min(1).describe("Page key, for example 'about' or 'parent/child'.")
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site, key }) =>
       toResult(() =>
@@ -190,7 +190,7 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.'),
         numberOfItems: z.number().int().optional().describe('Page size. -1 returns all drafts. Default 15.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site, numberOfItems }) =>
       toResult(() =>
@@ -226,7 +226,7 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.'),
         numberOfItems: z.number().int().optional().describe('Page size. -1 returns all scheduled pages. Default -1.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site, numberOfItems }) =>
       toResult(() =>

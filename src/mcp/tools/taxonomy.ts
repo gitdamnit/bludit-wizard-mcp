@@ -32,7 +32,7 @@ export function registerTaxonomyTools(server: McpServer, ctx: ToolContext): void
       inputSchema: {
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site }) =>
       toResult(() =>
@@ -62,7 +62,7 @@ export function registerTaxonomyTools(server: McpServer, ctx: ToolContext): void
       inputSchema: {
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site }) =>
       toResult(() =>

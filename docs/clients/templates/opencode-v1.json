@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "bludit-wizard": {
+      "type": "remote",
+      "url": "https://mcp.evanzellner.com/mcp",
+      "enabled": true
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "bludit-wizard": {
+      "type": "http",
+      "url": "https://mcp.evanzellner.com/mcp"
+    }
+  }
+}

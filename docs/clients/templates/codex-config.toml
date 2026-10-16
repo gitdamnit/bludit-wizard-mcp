@@ -1,0 +1,9 @@
+# OpenAI Codex reads MCP servers from ~/.codex/config.toml.
+# Codex picks CIMD first, then DCR, then a configured client. No secret needed.
+[mcp_servers.bludit-wizard]
+url = "https://mcp.evanzellner.com/mcp"
+
+# Optional: pin a pre-registered OAuth client instead of automatic registration.
+# [mcp_servers.bludit-wizard.oauth]
+# client_id = "REPLACE_WITH_CLIENT_ID"
+# callback_url = "http://127.0.0.1/callback"

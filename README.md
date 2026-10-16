@@ -8,9 +8,10 @@ Runs on Cloudflare Workers. Streamable HTTP. No model of its own, no page conten
 stored, no credentials in the clear.
 
 > **Status: pre-release, not deployed.** The implementation and its test suite are
-> complete: **357 tests passing**, including 24 against real Bludit Community and
+> complete: **411 tests passing**, including 24 against real Bludit Community and
 > real Bludit Pro 3.22.0 installations. It has **not** been deployed, and **no MCP
-> client product has been verified** against it. Both gaps are stated in
+> client product has been verified** against it — twelve are researched from
+> official documentation and none is tested. Both gaps are stated in
 > [Verified vs. not](#verified-vs-not) and in
 > [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). Nothing here claims otherwise.
 
@@ -143,7 +144,7 @@ one account from claiming a site that belongs to someone else.
 ```bash
 npm ci
 npm run typecheck
-npm test                     # 324 tests, hermetic: no network, no Docker, no credentials
+npm test                     # 378 tests, hermetic: no network, no Docker, no credentials
 npm run test:browser         # 9 more, Playwright against the same in-process Workers
 npm run build:auth           # dry-run build, no network
 npm run build:mcp
@@ -178,7 +179,7 @@ allowance. The arithmetic is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 This project takes the difference seriously.
 
-**Verified by automated tests** (357 tests, all passing):
+**Verified by automated tests** (411 tests, all passing):
 
 - The SSRF policy, including IPv4-mapped, NAT64, 6to4 and obfuscated literals.
 - Credit-card-style credential handling: encryption, additional-data binding,
@@ -230,7 +231,7 @@ commit: [docs/UPSTREAM_COMPARISON.md](docs/UPSTREAM_COMPARISON.md).
 | Concurrency | none | revision identifiers, stale-approval rejection |
 | Review workflow | none | propose → preview → apply → verify |
 | Capability reporting | none | `get_site_capabilities` |
-| Tests | none | 357 |
+| Tests | none | 411 |
 
 The upstream stdio server is retained unchanged so existing users are not broken.
 
@@ -292,9 +293,12 @@ Report a vulnerability privately — see [docs/SECURITY.md](docs/SECURITY.md).
 | [CLIENT_COMPATIBILITY.md](docs/CLIENT_COMPATIBILITY.md) | How to verify an MCP client, and what is unverified |
 | [TEST_REPORT.md](docs/TEST_REPORT.md) | Measured results, environment, limitations |
 | [OPENAI_PUBLICATION_CHECKLIST.md](docs/OPENAI_PUBLICATION_CHECKLIST.md) | Publication readiness, test cases, remaining steps |
+| [CLIENT_COMPATIBILITY_MATRIX.md](docs/CLIENT_COMPATIBILITY_MATRIX.md) | Twelve client targets: transport, auth, configuration, and what is verified |
+| [CLIENT_SETUP_GUIDES.md](docs/CLIENT_SETUP_GUIDES.md) | One setup guide per client, with copyable templates |
+| [CLIENT_GAP_ANALYSIS.md](docs/CLIENT_GAP_ANALYSIS.md) | What already worked, what needed building, and what was deliberately not built |
 | [PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) | Requirements with status and evidence |
 | [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | Current state, remaining risks, what the first deployment needs |
-| [DECISION_LOG.md](docs/DECISION_LOG.md) | Nineteen decisions with their reasons |
+| [DECISION_LOG.md](docs/DECISION_LOG.md) | Twenty-three decisions with their reasons |
 
 ## Contributing
 

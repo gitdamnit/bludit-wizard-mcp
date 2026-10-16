@@ -1,0 +1,18 @@
+{
+  "_comment": [
+    "Copilot cloud agent and Copilot code review do not support remote MCP servers",
+    "that use OAuth, so use a personal access token from",
+    "https://mcp.evanzellner.com/tokens and store it as the repository or",
+    "organisation Actions secret COPILOT_MCP_BLUDIT_WIZARD_TOKEN."
+  ],
+  "mcpServers": {
+    "bludit-wizard": {
+      "type": "http",
+      "url": "https://mcp.evanzellner.com/mcp",
+      "headers": {
+        "Authorization": "Bearer $COPILOT_MCP_BLUDIT_WIZARD_TOKEN"
+      },
+      "tools": ["*"]
+    }
+  }
+}

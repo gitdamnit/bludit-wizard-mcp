@@ -10,8 +10,9 @@ resource created; nothing published.
 | Area | State |
 |---|---|
 | Implementation | Complete: 19 MCP tools, OAuth 2.1 authorization server, resource server, site pairing, proposals, rate limiting |
-| Hermetic test suite | **324 passing** across 18 files |
+| Hermetic test suite | **378 passing** across 22 files |
 | Live test suite | **24 passing** against real Bludit Community 3.22.0 and real Bludit Pro 3.22.0 |
+| Client compatibility | Twelve targets researched from official documentation; **none tested**. One `readOnlyHint`/`destructiveHint` gap and one `Accept`-header gap closed; a personal-access-token path added for the four surfaces that cannot do OAuth |
 | Live compatibility | Verified, both editions |
 | Type checking | Clean, with `noUnusedLocals` |
 | Worker builds | Both bundle, well within the 64 MiB limit |
@@ -27,6 +28,9 @@ resource created; nothing published.
 | Credentials are encrypted at rest | Read back out of real D1: ciphertext, no plaintext, distinct ciphertext for identical credentials on two sites, and every read tool's output scanned for the token |
 | SSRF defence holds | Reserved ranges, IPv4-mapped/NAT64/6to4, obfuscated literals, internal hostnames, embedded credentials, scheme rules, redirect revalidation, response bounds |
 | Rate limiting holds | 42 tests across every bucket, including window reset, per-client isolation, no PII in storage, and a disabled-mode test |
+| The protocol surface matches what clients need | `protocol-surface.test.ts`: 19 tools each carrying all four annotation hints, `401` challenge shape, resource metadata, four `Accept` variants, old and new protocol revisions, no session id, no legacy `/sse` |
+| The nine-step client journey works | `client-journey.test.ts` walks all nine steps twice, once per credential type |
+| The token path is a credential, not a bypass | `pats.test.ts`: same scope enforcement, same tenancy, no delete, review-before-write, immediate revocation, expiry enforced, no plaintext stored, per-token audit |
 | The tool catalogue works on real Bludit | **24 live tests**, 14 operations each, on Community and Pro |
 | Community and Pro are equivalent for this server | `bl-plugins/api/plugin.php` and every kernel file the API depends on are **byte-identical** between the two 3.22.0 trees, and both live runs produce identical results |
 | Production configuration is safe | `test/unit/production-config.test.ts` asserts the deployable configs set the SSRF flag, disable insecure site URLs, keep rate limiting on, carry no secret, agree on issuer and resource, and contain no route |
@@ -45,6 +49,39 @@ three below were found by live testing and are the most instructive:
 The lesson is recorded as ADR-013: a mock disagreeing with a live site is a mock
 defect first, and all three now reproduce faithfully in the mock.
 
+## 3a. Client compatibility
+
+Twelve named environments, several resolving to more than one client surface. Full
+detail in `CLIENT_COMPATIBILITY_MATRIX.md`; the analysis is in
+`CLIENT_GAP_ANALYSIS.md`.
+
+| Outcome | Count | Surfaces |
+|---|---|---|
+| Served by OAuth alone, no adapter | 17 | Codex, Cursor, Junie CLI, JetBrains Air, VS Code, Copilot CLI, Antigravity, Cline, Kilo Code, Claude Code, Claude Desktop, Claude web, OpenCode V1 and V2, Le Chat, Gemini CLI, Gemini apps |
+| Served with a pre-registered OAuth client | 2 | Mistral AI Studio, Gemini Enterprise |
+| Served with a personal access token | 4 | Copilot cloud agent, Copilot code review, Mistral Vibe Code CLI, Empryo |
+| Unverified — documentation does not say | 2 | JetBrains AI Assistant remote auth, Codex Cloud |
+| Not supported | 1 | Junie IDE plugin (documents no token support) |
+| Not applicable | 1 | "Mistral Code" (no official MCP documentation under that name) |
+
+**Nothing is claimed as tested.** Every "tested version" cell in the matrix says
+`not tested`. What is verified is that the server satisfies each documented client
+requirement that could be identified, and that the nine-step journey works for both
+credential types.
+
+Three changes were needed, and no more:
+
+1. `destructiveHint` added to the 13 read-only tools, because Claude requires both
+   annotation hints on every tool.
+2. `withTolerantAccept()`, because the transport returned `406` for any `Accept`
+   header other than the exact specification-compliant combination.
+3. Personal access tokens, because four client surfaces cannot present an OAuth
+   token at all.
+
+The tool layer, the transport, the authorization service, the tenancy model and
+both safety safeguards needed **no** change. No client required a stdio bridge:
+every remote surface among the twelve documents native remote MCP support.
+
 ## 4. Remaining accepted risks
 
 Full reasoning in `SECURITY.md`. None of these blocks a **development**
@@ -58,7 +95,9 @@ deployment; the ones marked *public* must be closed before a public launch.
 | Credential key rotation unimplemented | No | Yes | A suspected key compromise currently means reconnecting every site. `CREDENTIAL_KEY_VERSION` is recorded so staged rotation is possible. |
 | KV eventual consistency on revocation | No | No | Bounded by the one-hour access-token TTL and typically under 60 seconds. |
 | Both Workers share `SITE_CREDENTIAL_KEY` | No | No | Required for the resource server to decrypt; splitting it means proxying every CMS call. |
-| No verification against a real MCP client | No | **Yes** | The protocol is verified; no product has been connected. This is the largest single gap in the publication case. |
+| No verification against a real MCP client | No | **Yes** | The protocol is verified and twelve clients are researched against official documentation, but no product has been connected. Still the largest gap in the publication case. |
+| A personal access token is a long-lived bearer credential | No | No | Bounded by user-chosen scopes, 90-day default expiry, immediate revocation, per-token audit, and no delete capability. ADR-020 records the trade-off. |
+| Client documentation may understate strictness | No | Yes | Other clients may be as strict as Claude without saying so. Only testing settles it. |
 | Only 3.22.0 live-verified | No | No | Later 3.22.x patches are modelled; below 3.22 is out of scope. |
 | `get_website_settings` needs an admin auth token | No | No | Bludit's own rule, disclosed in the capability report. |
 | No `/.well-known/security.txt` | No | No | Nice to have for coordinated disclosure. |

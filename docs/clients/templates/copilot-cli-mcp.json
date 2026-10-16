@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "bludit-wizard": {
+      "type": "http",
+      "url": "https://mcp.evanzellner.com/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_PERSONAL_ACCESS_TOKEN"
+      }
+    }
+  }
+}

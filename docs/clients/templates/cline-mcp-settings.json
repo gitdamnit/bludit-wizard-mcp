@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "bludit-wizard": {
+      "type": "streamableHttp",
+      "url": "https://mcp.evanzellner.com/mcp",
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}

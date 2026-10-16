@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "Gemini API managed agents take MCP servers as a tools[] entry, not a config file.",
+    "This server always requires a credential; supply one in headers."
+  ],
+  "agent": "REPLACE_WITH_AGENT_ID",
+  "input": "What pages are on my Bludit site?",
+  "environment": "remote",
+  "tools": [
+    {
+      "type": "mcp_server",
+      "name": "bludit_wizard",
+      "url": "https://mcp.evanzellner.com/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_PERSONAL_ACCESS_TOKEN"
+      }
+    }
+  ]
+}

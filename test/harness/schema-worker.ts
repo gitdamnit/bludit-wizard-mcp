@@ -3,18 +3,25 @@
  *
  * Two capabilities, both scoped to the test harness:
  *   POST /apply  — create the schema (the harness does not run D1 migrations)
- *   POST /query  — run a read-only SELECT and return the rows
+ *   POST /query  — run a statement and return any rows
  *
  * `/query` exists so tests can assert on *stored* state — most importantly that
- * credentials are ciphertext in D1 rather than plaintext. It refuses anything
- * that is not a SELECT, and it is never referenced by a deployable config.
+ * credentials and tokens are ciphertext in D1 rather than plaintext — and so a
+ * test can arrange a state that would otherwise need the passage of time, such as
+ * a token that has expired.
+ *
+ * It permits `SELECT`, `UPDATE` and `DELETE` on the application tables. Anything
+ * that could change the schema, attach a database or reach outside it is refused.
+ * This Worker exists only under `test/`, binds a local in-memory database, and is
+ * never referenced by a deployable config.
  */
 
 import init from '../../migrations/0001_init.sql';
 import rateLimits from '../../migrations/0002_rate_limits.sql';
+import personalAccessTokens from '../../migrations/0003_personal_access_tokens.sql';
 
 /** Applied in filename order, the same order `wrangler d1 migrations apply` uses. */
-const SCHEMA = `${init}\n${rateLimits}`;
+const SCHEMA = `${init}\n${rateLimits}\n${personalAccessTokens}`;
 
 export function splitStatements(sql: string): string[] {
   return sql
@@ -43,8 +50,12 @@ export default {
     if (pathname === '/query') {
       const body = (await request.json()) as { sql?: string; params?: unknown[] };
       const sql = (body.sql ?? '').trim();
-      if (!/^select\s/i.test(sql)) {
-        return Response.json({ ok: false, error: 'only SELECT is permitted' }, { status: 400 });
+      // No schema changes, no ATTACH, no multiple statements.
+      if (!/^(select|update|delete)\s/i.test(sql) || sql.includes(';')) {
+        return Response.json(
+          { ok: false, error: 'only a single SELECT, UPDATE or DELETE is permitted' },
+          { status: 400 }
+        );
       }
       const statement = env.DB.prepare(sql);
       const bound = body.params && body.params.length > 0 ? statement.bind(...body.params) : statement;

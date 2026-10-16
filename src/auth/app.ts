@@ -33,6 +33,7 @@ import {
 import { createAuthorizationServer } from './oauth.js';
 import { handleDecision, isAuthorizationError, renderConsentPage } from './consent.js';
 import { registerSiteRoutes } from './sites-ui.js';
+import { registerTokenRoutes } from './tokens-ui.js';
 import type { AuthApp } from './types.js';
 import type { AuthEnv } from '../shared/env.js';
 
@@ -346,6 +347,7 @@ ${c.req.query('revoked') ? '<p class="notice">Client revoked. Its tokens stop wo
   });
 
   registerSiteRoutes(app);
+  registerTokenRoutes(app);
 
   return app;
 }

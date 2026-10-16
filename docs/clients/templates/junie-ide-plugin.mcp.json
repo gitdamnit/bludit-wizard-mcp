@@ -1,0 +1,9 @@
+{
+  "_comment": [
+    "The Junie IDE plugin documents no support for security tokens in MCP configs",
+    "and shows only a stdio example. This server always requires a credential, so",
+    "an authenticated connection is not possible from the IDE plugin today.",
+    "Its CLI has header and OAuth support; see junie-cli-mcp.json."
+  ],
+  "mcpServers": {}
+}

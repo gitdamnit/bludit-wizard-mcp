@@ -1,0 +1,9 @@
+# The Vibe Code CLI does not support MCP servers that require OAuth, so use a
+# personal access token from https://mcp.evanzellner.com/tokens.
+[[mcp_servers]]
+name = "bludit_wizard"
+transport = "streamable-http"
+url = "https://mcp.evanzellner.com/mcp"
+api_key_env = "BLUDIT_WIZARD_TOKEN"
+api_key_header = "Authorization"
+api_key_format = "Bearer {token}"

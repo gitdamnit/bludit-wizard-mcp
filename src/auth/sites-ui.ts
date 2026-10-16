@@ -265,7 +265,7 @@ ${siteCards}
   </form>
 </div>
 
-<p class="muted"><a href="/clients">Manage connected MCP clients</a> · <a href="/signout">Sign out</a></p>
+<p class="muted"><a href="/clients">Manage connected MCP clients</a> · <a href="/tokens">Personal access tokens</a> · <a href="/signout">Sign out</a></p>
 `;
   return htmlResponse(shell('Connected sites', body));
 }

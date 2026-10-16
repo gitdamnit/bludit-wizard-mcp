@@ -37,8 +37,8 @@ This assignment concerns O2 while preserving interoperability with O1.
 |---|---|---|---|
 | P1 | Universal remote MCP server, not a ChatGPT-specific backend | ✅ | Stateless Streamable HTTP + OAuth 2.1; no client-specific code paths |
 | P2 | Standards-compliant MCP clients via Streamable HTTP and OAuth 2.1 | ✅ | RFC 9728, 8414, 6749, 7591, 7636, 7009, 8707, 9207; verified by a specification-following client |
-| P3 | Primary clients: ChatGPT, Codex, Claude, Gemini CLI, OpenCode | ❌ **unverified** | None has been connected. See `CLIENT_COMPATIBILITY.md` |
-| P4 | Secondary: Cursor, VS Code, Kilo Code, Windsurf, Continue | ❌ **unverified** | As above |
+| P3 | Twelve named client environments are explicit compatibility targets | ⚠️ | Researched from official documentation; none tested. See §3.2 |
+| P4 | One interoperable ecosystem, not twelve applications | ✅ | One server, one authorization service; adapters only where a client cannot meet it |
 | P5 | Never claim a client is compatible until actually verified | ✅ | No claim is made anywhere; the rule is in `CONTRIBUTING.md` |
 | P6 | One hosted service supports multiple independently authorized websites | ✅ | Tenancy tests; MCP requests are scoped by account and client |
 | P7 | Authentication, user identity, client identity, site ownership and tool authorization stay distinct | ✅ | Four separate concepts in `ARCHITECTURE.md`, each tested |
@@ -50,6 +50,34 @@ This assignment concerns O2 while preserving interoperability with O1.
 | P13 | Preserve upstream licence notices and attribution | ✅ | Dual-copyright `LICENSE`, `NOTICE`, upstream history intact |
 | P14 | No production credentials, website content, or secrets in source control | ✅ | Asserted by `test/unit/production-config.test.ts` |
 | P15 | No production deployment, DNS or account change without approval | ✅ | No deploy step in CI; seven approval gates in `DEPLOYMENT.md` |
+
+### 3.2 Client compatibility targets
+
+The binding requirement names twelve environments. Several resolve to more than
+one client surface, and the requirement asks for those to be distinguished, so
+each row below is a surface that must be considered separately. Every row is
+supported by documentation cited in `CLIENT_COMPATIBILITY_MATRIX.md`; **no row is
+tested against the product.**
+
+| # | Target | Surfaces | Remote MCP | Credential path | Status |
+|---|---|---|---|---|---|
+| C1 | OpenAI Codex | CLI, IDE extension, desktop app; **Codex Cloud separately** | Yes | OAuth (CIMD + DCR) | ⚠️ not tested |
+| C2 | Cursor | one product | Yes | OAuth (DCR) | ⚠️ not tested |
+| C3 | JetBrains AI Assistant | AI Assistant; **Junie IDE plugin, Junie CLI, Air separately** | Yes, except the Junie IDE plugin | OAuth where documented; **Junie IDE plugin has none** | ⚠️ not tested; one surface unsupported |
+| C4 | VS Code / GitHub Copilot Agent | VS Code agent mode; **Copilot cloud agent and code review separately**; Copilot CLI | Yes | OAuth in VS Code; **headers only for Copilot cloud agent and code review** | ⚠️ not tested |
+| C5 | Google Antigravity | one product | Yes | OAuth (auto-DCR) | ⚠️ not tested |
+| C6 | Cline | one product | Yes | OAuth or headers | ⚠️ not tested |
+| C7 | Kilo Code | one product; **JetBrains and VS Code builds share config** | Yes | OAuth or headers | ⚠️ not tested |
+| C8 | Claude | **Claude Code, Claude Desktop, Claude web/Cowork separately** | Yes | OAuth (CIMD + DCR) | ⚠️ not tested |
+| C9 | OpenCode | **V1 and V2 config shapes separately** | Yes | OAuth (CIMD, DCR, pre-registered) | ⚠️ not tested |
+| C10 | Empryo | one product | Yes | **Headers only; OAuth not documented** | ⚠️ not tested |
+| C11 | Mistral | **Le Chat, AI Studio Connectors, Vibe Code CLI separately**; "Mistral Code" has no MCP docs | Yes | OAuth in Le Chat; pre-registered in Studio; **headers only in Vibe Code CLI** | ⚠️ not tested |
+| C12 | Gemini | **Gemini CLI, Gemini API managed agents, Gemini apps (consumer), Gemini Enterprise separately** | Yes | OAuth (DCR) in the CLI; headers elsewhere; pre-registered in Enterprise | ⚠️ not tested |
+
+Also first-class and **not** an MCP client: the **Native Bludit Wizard PHP plugin**,
+which must keep working independently with configurable OpenAI-compatible
+providers, without MCP, Cloudflare, or any particular vendor. It is unmodified by
+this project. See `PHP_WIZARD_INTEGRATION.md`.
 
 ## 4. Functional requirements
 
@@ -101,6 +129,15 @@ This assignment concerns O2 while preserving interoperability with O1.
 | FR-37 | Never fetch arbitrary third-party URLs without validation | ✅ | SSRF policy, redirect revalidation, response bounds, and the runtime flag |
 | FR-38 | Credentials encrypted at rest with separately managed secrets, never logged or returned | ✅ | AES-256-GCM; asserted against real D1 rows; every tool output scanned for plaintext |
 | FR-39 | Rate limiting on OAuth, registration, pairing and MCP | ✅ | Implemented and tested (42 tests); see `SECURITY.md` |
+| FR-49 | All twelve clients recorded as explicit compatibility targets | ✅ | §3.2 |
+| FR-50 | A compatibility matrix with transport, authentication, configuration, tested version, read, proposed edit, approved write and verified result | ✅ | `CLIENT_COMPATIBILITY_MATRIX.md` |
+| FR-51 | Per-client setup guides and copyable configuration templates, without secrets | ✅ | `CLIENT_SETUP_GUIDES.md`, `docs/clients/templates/` (20 templates) |
+| FR-52 | Reuse the one remote server and authorization service wherever supported | ✅ | Every OAuth-capable client points at the same URL; no per-client backend |
+| FR-53 | A minimal compatibility adapter where necessary, without forking the backend | ✅ | `withTolerantAccept()` and the personal-access-token path; both in-process |
+| FR-54 | Test OAuth authorization, site selection, page listing, content retrieval, draft creation, edit proposal, explicit approval, edit application and verification | ✅ | `client-journey.test.ts` walks all nine, for both credential types |
+| FR-55 | Record unsupported functions honestly; claim nothing untested | ✅ | `CLIENT_COMPATIBILITY_MATRIX.md`: every "tested version" is `not tested`; four surfaces marked unsupported or unknown |
+| FR-56 | Keep clients isolated by user, grant, scope and site | ✅ | Tenancy asserted for both credential types, including a token belonging to another account |
+| FR-57 | Preserve no-delete-by-agent and review-before-write for every credential path | ✅ | Asserted with a personal access token too |
 
 ### 4.3 Native PHP independence
 

@@ -1,0 +1,11 @@
+// Kilo Code — ~/.config/kilo/kilo.jsonc or <project>/kilo.jsonc
+{
+  "mcp": {
+    "bludit-wizard": {
+      "type": "remote",
+      "url": "https://mcp.evanzellner.com/mcp",
+      "enabled": true,
+      "timeout": 30000
+    }
+  }
+}

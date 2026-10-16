@@ -1,0 +1,12 @@
+// OpenCode V2 — ~/.config/opencode/opencode.jsonc or <project>/opencode.jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "bludit-wizard": {
+        "type": "remote",
+        "url": "https://mcp.evanzellner.com/mcp"
+      }
+    }
+  }
+}

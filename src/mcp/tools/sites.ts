@@ -26,7 +26,7 @@ export function registerSiteTools(server: McpServer, ctx: ToolContext): void {
           .optional()
           .describe('Include the last capability probe result for each site. Default false.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true }
     },
     async ({ include_capabilities }) =>
       toResult(() =>
@@ -72,7 +72,7 @@ export function registerSiteTools(server: McpServer, ctx: ToolContext): void {
       inputSchema: {
         site: z.string().min(1).describe('Site id, exact label, or hostname (for example `blog.example.com`).')
       },
-      annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true }
     },
     async ({ site }) =>
       toResult(() =>
@@ -107,7 +107,7 @@ export function registerSiteTools(server: McpServer, ctx: ToolContext): void {
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.'),
         refresh: z.boolean().optional().describe('Re-probe the live site. Default false, which returns the cached probe.')
       },
-      annotations: { readOnlyHint: true, openWorldHint: true, idempotentHint: true }
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }
     },
     async ({ site, refresh }) =>
       toResult(() =>

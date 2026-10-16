@@ -23,7 +23,7 @@ import { expireStaleProposals } from '../proposals/store.js';
 import type { AuthEnv } from '../shared/env.js';
 
 /** Paths served by this application rather than by the OAuth library. */
-const APP_PREFIXES = ['/signin', '/signup', '/signout', '/authorize', '/sites', '/clients', '/account', '/healthz'] as const;
+const APP_PREFIXES = ['/signin', '/signup', '/signout', '/authorize', '/sites', '/clients', '/tokens', '/account', '/healthz'] as const;
 
 export function isApplicationRoute(pathname: string): boolean {
   if (pathname === '/') return true;

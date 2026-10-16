@@ -1,0 +1,20 @@
+{
+  "_comment": [
+    "Claude Desktop reaches the hosted server through a Custom Connector",
+    "(Customize > Connectors > Add > Custom > Web) and needs no file.",
+    "This file is for the OTHER server in this repository: the retained",
+    "single-site stdio server for a local Bludit installation.",
+    "It reads three environment variables and serves one site."
+  ],
+  "mcpServers": {
+    "bludit": {
+      "command": "npx",
+      "args": ["-y", "bludit-mcp"],
+      "env": {
+        "BLUDIT_URL": "https://www.example.com",
+        "BLUDIT_API_TOKEN": "REPLACE_WITH_API_TOKEN",
+        "BLUDIT_AUTH_TOKEN": "REPLACE_WITH_AUTH_TOKEN"
+      }
+    }
+  }
+}
