@@ -31,7 +31,7 @@ generate the three secrets as described there.
 
 ```bash
 npm run typecheck        # must be clean; there is no "known errors" list
-npm test                 # 262 tests, currently all green
+npm test                 # 263 tests, currently all green
 npm run test:browser     # 9 browser tests
 npm run build:auth && npm run build:mcp   # both Workers must bundle
 ```

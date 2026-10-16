@@ -8,9 +8,11 @@ this project.
 | | |
 |---|---|
 | Test date | 2026-10-16 |
-| Commit under test | `8e11e70` (test suite) plus the working-tree changes documented below |
+| Test suite at | `ebbf144` (254 Vitest tests) and `6414040` (9 Playwright tests) |
+| Coverage measured at | the working tree that became `972be8e` |
 | Branch | `feat/remote-mcp-oauth-v1` |
-| Upstream pin | `bludit-dd…` → `73b5ddcb92015d1359370ba2613090eef6af910c` |
+| Upstream pin | `73b5ddcb92015d1359370ba2613090eef6af910c` |
+| Bludit build inspected | PRO 3.22.0, build 20260510 |
 | Platform | Linux 7.0.0-38-generic |
 | Node.js | 22.23.2 |
 | npm | 10.9.8 |
@@ -31,18 +33,18 @@ this project.
 | `typescript` | 5.9.3 | Type checking; deliberately not 7.x, see `DEPLOYMENT.md` |
 | `@cloudflare/workers-types` | 5.20261015.1 | Worker bindings and runtime types |
 | `@types/node` | 24.19.2 | Node APIs used by the test harness |
-| Bludit build inspected | PRO 3.22.0, build 20260510, commit `d5612ed979eeb9ac222a2272aab0c8b97cc09826` | Source of the mock's behaviour |
+| Bludit build inspected | PRO 3.22.0, commit `d5612ed979eeb9ac222a2272aab0c8b97cc09826` | Source of the mock's behaviour |
 
 ## Results
 
 ```
 # Vitest — unit, integration and compatibility
 Test Files  14 passed (14)
-     Tests  253 passed (253)
-  Duration  217.49s
+     Tests  254 passed (254)
+  failures  0     errors  0
 
 # Playwright — authorization server pages in Chromium
-    9 passed (1.1m)
+    9 passed
 ```
 
 Machine-readable results: `reports/junit.xml` (JUnit XML, written by every run).
@@ -53,11 +55,11 @@ Machine-readable results: `reports/junit.xml` (JUnit XML, written by every run).
 | Suite | Files | Tests | Kind | Runtime |
 |---|---|---|---|---|
 | `test/unit/` | 8 | 169 | Pure logic, Node environment, no Workers | ~0.6 s |
-| `test/integration/` | 5 | 75 | Two Workers in workerd, real Service Binding, real HTTP | ~2.5 min |
+| `test/integration/` | 5 | 76 | Two Workers in workerd, real Service Binding, real HTTP | ~2.5 min |
 | `test/compat/` | 1 | 9 | Modelled Bludit variants, table-driven | ~50 s |
 | `test/browser/` | 1 | 9 | Playwright, headless Chromium, against the same in-process Workers | ~1.1 min |
 
-Total: **262 tests**. `reports/junit.xml` and `reports/playwright-junit.xml` are
+Total: **263 tests**. `reports/junit.xml` and `reports/playwright-junit.xml` are
 written by `npm test` and `npm test:browser`; `reports/coverage/` by
 `npx vitest run --coverage`. All three are git-ignored build output.
 
@@ -78,7 +80,7 @@ written by `npm test` and `npm test:browser`; `reports/coverage/` by
 
 | File | Tests | Covers |
 |---|---|---|
-| `mcp-tools.test.ts` | 34 | All 19 tools end to end against the mock Bludit site; the proposal lifecycle; revision mismatches; upstream failure mapping; credential non-leakage; page-key traversal rejection |
+| `mcp-tools.test.ts` | 35 | All 19 tools end to end against the mock Bludit site; the proposal lifecycle; revision mismatches; upstream failure mapping; credential non-leakage; page-key traversal rejection |
 | `oauth-security.test.ts` | 20 | Scope step-up, resource-audience rejection, per-client isolation and revocation, per-account isolation, cross-account proposal rejection, PKCE enforcement, code replay, redirect-URI mismatch, unregistered redirect URI, unknown client, consent denial, consent page contents, CSRF enforcement, remembered consent, refresh, CIMD rejection |
 | `site-connect.test.ts` | 11 | Pairing proof by ownership file and by Wizard HMAC, missing proof, wrong challenge, unknown challenge, challenge reuse, challenge bound to another URL, encryption at rest verified in D1, Wizard key rejection, invalid proof |
 | `production-shape.test.ts` | 7 | Boot under `global_fetch_strictly_public`, CIMD advertisement, resource metadata, full authorization, loopback refusal, cloud-metadata refusal, internal-hostname refusal |
@@ -107,9 +109,74 @@ outcomes, plus four cross-variant consistency assertions. Results are written to
 
 ## Coverage
 
-Produced by `npx vitest run --coverage` (V8). Instrumented files are `src/**`,
-excluding type-only declarations. Browser tests are not included: Playwright runs
-a separate process and drives the pages over HTTP.
+Produced by `npx vitest run --coverage` (V8, instrumenting `src/**`), measured on
+the working tree that became commit `972be8e`. The later commit `e4c92e6` removed
+unused code only, and `ebbf144` added a session guard in a module already at 0%
+below, so neither changes these figures.
+
+**Read this before quoting the headline number.**
+
+```
+Statements  39.79% ( 634/1593 )
+Branches    33.28% ( 432/1298 )
+Functions   33.04% ( 114/345  )
+Lines       39.18% ( 560/1429 )
+```
+
+That aggregate is **not** a measure of how well tested this project is. V8
+coverage is collected in the Node process running Vitest. Most of this codebase
+does not execute there — it executes inside **workerd**, in a separate process
+that the instrumented Node process cannot observe. Every file below showing 0%
+is in fact exercised by the integration and compatibility suites, which is where
+the 85 workerd-driving tests live.
+
+So the honest reading is two-part.
+
+### Modules the Node process genuinely covers
+
+These are unit-tested directly, and their numbers are meaningful:
+
+| Module | Statements | Branches | Functions | Lines |
+|---|---|---|---|---|
+| `shared/ssrf.ts` | 87.62% | 78.86% | 95.65% | 95.56% |
+| `shared/crypto.ts` | 94.49% | 92.10% | 95.65% | 94.56% |
+| `shared/cookies.ts` | 83.33% | 75.00% | 80.00% | 91.30% |
+| `shared/html.ts` | 80.00% | 60.00% | 75.00% | 80.00% |
+| `bludit/capabilities.ts` | 96.96% | 97.29% | 100% | 96.87% |
+| `bludit/client.ts` | 81.55% | 68.75% | 81.81% | 84.37% |
+| `proposals/diff.ts` | 91.35% | 91.42% | 100% | 90.00% |
+| `sites/registry-helpers.ts` | 100% | 82.35% | 100% | 100% |
+| `mcp/tools/write-helpers.ts` | 77.50% | 80.43% | 100% | 96.55% |
+
+Partially covered for the same reason — the pure logic is unit-tested and the
+binding-dependent part runs in workerd:
+
+| Module | Statements | Why it is partly dark |
+|---|---|---|
+| `proposals/store.ts` | 45.45% | `assertProposalApplicable` is unit-tested; the D1 functions run in workerd |
+| `sites/pairing.ts` | 20.68% | The proof comparisons are unit-tested; the D1 challenge functions run in workerd |
+| `mcp/tools/intelligence.ts` | 20.56% | `summarizeContent` is unit-tested; the tool registrations run in workerd |
+| `shared/log.ts` | 6.25% | Called from workerd, whose console output does not reach the Node process |
+
+### Modules reported at 0% that are covered by the integration suite
+
+`auth/accounts.ts`, `auth/app.ts`, `auth/consent.ts`, `auth/index.ts`,
+`auth/oauth.ts`, `auth/sessions.ts`, `auth/sites-ui.ts`, `mcp/app.ts`,
+`mcp/index.ts`, `mcp/server.ts`, `mcp/tools/context.ts`, `mcp/tools/pages.ts`,
+`mcp/tools/result.ts`, `mcp/tools/sites.ts`, `mcp/tools/taxonomy.ts`,
+`mcp/tools/write.ts`, `sites/connect.ts`, `sites/credentials.ts`,
+`sites/registry.ts`.
+
+These include the OAuth authorization flow, the consent page, session handling,
+the site-connection flow, encryption at rest, the MCP transport and the HTTP
+pre-flight — all of which are exercised end to end by tests asserting real
+behaviour (a token is issued, a `403` names the right scopes, a challenge cannot
+be reused, ciphertext in D1 is not plaintext). Behavioural assertions, not
+coverage percentages, are the evidence for those modules.
+
+Getting a single honest coverage number would mean running the tests inside
+workerd with `@cloudflare/vitest-pool-workers` and merging its coverage with the
+Node run. That is worth doing and is not done.
 
 <!-- COVERAGE-TABLE -->
 
@@ -121,6 +188,18 @@ deployment. They are listed with their severity in
 SSRF policy — IPv4-mapped and NAT64 IPv6 forms were accepted, and the prefix
 matcher was wrong for every IPv6 range. Neither is reachable by reading the code
 casually; both are trivially reachable by trying.
+
+## Worker bundle sizes
+
+Measured by `wrangler deploy --dry-run`. The platform limit is 64 MiB uncompressed.
+
+| Worker | Upload | Gzipped |
+|---|---|---|
+| `bludit-wizard-auth` | 382.78 KiB | 90.45 KiB |
+| `bludit-wizard-mcp` | 1535.71 KiB | 270.26 KiB |
+
+The MCP Worker is roughly four times larger because it carries the MCP SDK and
+the Zod schemas for 19 tools.
 
 ## What is not covered
 

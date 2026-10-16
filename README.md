@@ -8,7 +8,7 @@ Runs on Cloudflare Workers. Streamable HTTP. No model of its own, no page conten
 stored, no credentials in the clear.
 
 > **Status: pre-release.** The implementation and its test suite are complete
-> (262 tests passing). It has **not** been deployed, and it has **not** been
+> (263 tests passing). It has **not** been deployed, and it has **not** been
 > connected to a live Bludit site or used from a real MCP client. Both gaps are
 > stated plainly in [Verified vs. not](#verified-vs-not) and
 > [docs/TEST_REPORT.md](docs/TEST_REPORT.md). Nothing here claims otherwise.
@@ -141,7 +141,7 @@ one account from claiming a site that belongs to someone else.
 ```bash
 npm ci
 npm run typecheck
-npm test                     # 262 tests
+npm test                     # 263 tests
 npm run test:browser         # Playwright, against the same in-process Workers
 npm run build:auth           # dry-run build, no network
 npm run build:mcp
@@ -168,7 +168,7 @@ allowance. The arithmetic is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 This project takes the difference seriously.
 
-**Verified by automated tests** (262 tests, all passing):
+**Verified by automated tests** (263 tests, all passing):
 
 - The SSRF policy, including IPv4-mapped, NAT64, 6to4 and obfuscated literals.
 - Credit-card-style credential handling: encryption, additional-data binding,
@@ -211,7 +211,7 @@ commit: [docs/UPSTREAM_COMPARISON.md](docs/UPSTREAM_COMPARISON.md).
 | Concurrency | none | revision identifiers, stale-approval rejection |
 | Review workflow | none | propose → preview → apply → verify |
 | Capability reporting | none | `get_site_capabilities` |
-| Tests | none | 262 |
+| Tests | none | 263 |
 
 The upstream stdio server is retained unchanged so existing users are not broken.
 

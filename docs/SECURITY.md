@@ -222,7 +222,7 @@ regression test.
 
 ## Verification status
 
-Everything above is asserted by the test suite: 262 tests — 169 unit, 84 driving
+Everything above is asserted by the test suite: 263 tests — 169 unit, 85 driving
 real workerd, and 9 in a real browser. `docs/TEST_REPORT.md` records what was
 measured and on which commit.
 
