@@ -21,6 +21,16 @@ import { toResult, truncate } from './result.js';
 const DEFAULT_SCAN_LIMIT = 200;
 const MAX_SCAN_LIMIT = 500;
 
+/**
+ * Upper bound on pages fetched individually when `include_content` is set.
+ *
+ * Each fetched page is a separate subrequest, and a Workers request may make only
+ * 50 subrequests on the Free plan (10,000 on Paid) — including D1 queries. The
+ * default leaves headroom for the list call, the audit write and the platform's
+ * own bookkeeping. A Paid deployment can safely raise this constant.
+ */
+const MAX_CONTENT_SCAN = 40;
+
 export function registerIntelligenceTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     'search_pages',
@@ -34,7 +44,9 @@ export function registerIntelligenceTools(server: McpServer, ctx: ToolContext): 
         include_content: z
           .boolean()
           .optional()
-          .describe('Also match against each page body. Slower: fetches up to `scan_limit` pages. Default false.'),
+          .describe(
+            `Also match against each page body. Each page is a separate upstream request, so scan_limit is limited to ${40} when this is set. Default false.`
+          ),
         published: z.boolean().optional().describe('Search published pages. Default true.'),
         draft: z.boolean().optional().describe('Also search drafts. Default false.'),
         static: z.boolean().optional().describe('Also search static pages. Default false.'),
@@ -56,7 +68,19 @@ export function registerIntelligenceTools(server: McpServer, ctx: ToolContext): 
         withAudit(ctx, 'search_pages', async () => {
           requireToolScope(ctx, 'search_pages');
           const resolved = await siteFor(ctx, args.site);
-          const scanLimit = Math.min(args.scan_limit ?? DEFAULT_SCAN_LIMIT, MAX_SCAN_LIMIT);
+          const requested = args.scan_limit ?? DEFAULT_SCAN_LIMIT;
+
+          // Refuse rather than silently clamp: a caller asking to scan 200 pages
+          // with `include_content` needs to know why it cannot.
+          if (args.include_content === true && requested > MAX_CONTENT_SCAN) {
+            throw new ToolError(
+              'invalid_input',
+              `Scanning page bodies is limited to ${MAX_CONTENT_SCAN} pages per call, because each page is a separate upstream request. Lower scan_limit, or omit include_content to search titles and descriptions only.`,
+              { requestedScanLimit: requested, maxContentScan: MAX_CONTENT_SCAN }
+            );
+          }
+
+          const scanLimit = Math.min(requested, MAX_SCAN_LIMIT);
           const resultLimit = args.limit ?? 20;
           const needle = args.query.toLowerCase();
 

@@ -1,16 +1,32 @@
 # Copy to .dev.vars for local development. .dev.vars is git-ignored.
 #
-# 32 random bytes, base64. Encrypts Bludit site credentials at rest in D1.
+# Both Workers need the SAME SITE_CREDENTIAL_KEY value: the authorization server
+# encrypts connected-site credentials and the resource server decrypts them.
+#
+# Generate each value with:
 #   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# base64 of 32 random bytes. Root key for Bludit site credentials at rest.
 SITE_CREDENTIAL_KEY=""
 
-# 32 random bytes, base64. HMAC key for session cookies and pairing-challenge hashes.
-#   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# base64 of 32 random bytes. Derives session ids and CSRF tokens, and keys
+# pairing-challenge hashes. Rotating it signs every user out.
 SESSION_SECRET=""
 
-# HMAC key for the "remember this consent" cookie. At least 32 characters.
+# At least 32 characters. HMAC key for the remembered-consent cookie.
+# The OAuth provider library rejects anything shorter.
 CONSENT_SECRET=""
 
-# Bootstrap administrator. Used by `npm run admin:create` to seed the first account.
-BOOTSTRAP_ADMIN_EMAIL=""
-BOOTSTRAP_ADMIN_PASSWORD=""
+# Loopback-only escape hatch for local Bludit sites on http://127.0.0.1:8080.
+# Leave unset (or "false") everywhere else. It never permits a LAN address.
+# ALLOW_INSECURE_SITE_URLS="true"
+
+# Defaults, shown here for reference only:
+# PBKDF2_ITERATIONS="600000"
+# PAIRING_TTL_SECONDS="900"
+# PROPOSAL_TTL_SECONDS="900"
+# ALLOW_SIGNUP="true"
+
+# There is no bootstrap-admin variable. With no accounts yet, /signup is open
+# even when ALLOW_SIGNUP="false", so the first account creates itself. After
+# that, set ALLOW_SIGNUP="false" to close public registration.

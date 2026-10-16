@@ -1,0 +1,54 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "bludit-wizard-mcp",
+  "version": "0.1.0",
+  "description": "Read and update pages on Bludit CMS websites you connect to your own account.",
+  "author": {
+    "name": "Evan Zellner",
+    "url": "https://example.com"
+  },
+  "homepage": "https://example.com/bludit-wizard-mcp",
+  "repository": "https://example.com/bludit-wizard-mcp",
+  "license": "MIT",
+  "keywords": ["bludit", "cms", "pages", "content", "publishing"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Bludit Wizard",
+        "shortDescription": "Manage your Bludit websites",
+        "longDescription": "Bludit Wizard connects the Bludit websites you own to ChatGPT so you can read, draft and update pages. Connect a site by proving control of it, then list pages, read a page in full, search, summarise content, create drafts, edit pages, and review a change before applying it. Everything happens through your sites' own Bludit HTTP API: this service runs no model of its own, stores no page content, and only ever acts on sites your account has connected. Page deletion is not offered. You can revoke any client's access at any time from the connected clients page.",
+        "developerName": "Evan Zellner",
+        "category": "Productivity",
+        "capabilities": [
+          "List connected sites",
+          "Read pages and drafts",
+          "Search and summarise content",
+          "Create and edit pages",
+          "Propose changes for review"
+        ],
+        "websiteURL": "https://example.com/bludit-wizard-mcp",
+        "supportURL": "https://example.com/bludit-wizard-mcp/support",
+        "privacyPolicyURL": "https://example.com/privacy",
+        "termsOfServiceURL": "https://example.com/terms",
+        "defaultPrompt": [
+          "What pages do I have on my blog?",
+          "Draft an introduction for a post about slow travel.",
+          "Show me what would change before applying that edit."
+        ],
+        "brandColor": "#2B6CB0",
+        "brandColorDark": "#7AA7D9"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [],
+          "negative": []
+        },
+        "commerce": false,
+        "commerce_description": "This plugin is free, open source under the MIT licence, and sells nothing."
+      },
+      "publication": {
+        "release_notes": "Initial release: 19 tools for reading, drafting and updating Bludit pages, with OAuth 2.1 authorization and a review-before-apply workflow."
+      }
+    }
+  }
+}
