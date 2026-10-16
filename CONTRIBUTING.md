@@ -31,13 +31,25 @@ generate the three secrets as described there.
 
 ```bash
 npm run typecheck        # must be clean; there is no "known errors" list
-npm test                 # 263 tests, currently all green
+npm test                 # 324 hermetic tests, currently all green
 npm run test:browser     # 9 browser tests
 npm run build:auth && npm run build:mcp   # both Workers must bundle
 ```
 
 A change is not ready while any of those fails. If a test is genuinely wrong,
 fix the test in the same commit and say why in the message.
+
+If your change touches the Bludit client — anything in `src/bludit/`, or the field
+handling in `src/mcp/tools/` — run the live suite as well:
+
+```bash
+PRO_ZIP=/path/to/bludit-pro-3.22.0.zip scripts/live-bludit-up.sh both
+npm run test:live
+scripts/live-bludit-up.sh --down
+```
+
+It is what found that Bludit sends `tags` as a comma-joined string and `category`
+as `false`, neither of which the mock had right, and it takes about two minutes.
 
 ## The two rules
 
@@ -95,6 +107,7 @@ Preserve attribution: upstream code stays upstream code, and the MIT notice in
 | `test/unit/` | Pure logic, Node environment, fast |
 | `test/integration/` | Two Workers in workerd via `createTestHarness`, with a real Service Binding |
 | `test/compat/` | Modelled Bludit variants; writes `reports/bludit-compatibility.json` |
+| `test/live/` | Real Bludit Community and Pro in containers. Opt-in, separate config, skips without credentials |
 | `test/harness/` | The mock Bludit server, the OAuth client, the schema worker |
 | `docs/` | Everything above |
 

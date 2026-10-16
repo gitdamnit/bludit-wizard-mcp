@@ -171,15 +171,82 @@ Measured by `wrangler deploy --dry-run`. The platform limit is 64 MiB uncompress
 
 | Worker | Upload | Gzipped |
 |---|---|---|
-| `bludit-wizard-auth` | 382.78 KiB | 90.45 KiB |
-| `bludit-wizard-mcp` | 1535.71 KiB | 270.26 KiB |
+| `bludit-wizard-auth` | 391.47 KiB | 92.54 KiB |
+| `bludit-wizard-mcp` | 1543.44 KiB | 272.64 KiB |
 
 The MCP Worker is roughly four times larger because it carries the MCP SDK and the
 Zod schemas for 19 tools.
 
 ## Coverage
 
-<!-- COVERAGE -->
+Produced by `npx vitest run --coverage test/unit test/integration test/compat`
+(V8, instrumenting `src/**`).
+
+```
+Statements  40.11% ( 680/1695 )
+Branches    34.09% ( 464/1361 )
+Functions   35.42% ( 130/367  )
+Lines       39.41% ( 596/1512 )
+```
+
+**Read this before quoting the headline number.** That aggregate is **not** a
+measure of how well tested this project is. V8 coverage is collected in the Node
+process running Vitest, and most of this codebase does not execute there — it
+executes inside **workerd**, in a separate process the instrumented Node process
+cannot observe. Every file below showing 0% is in fact exercised by the
+integration, compatibility and live suites.
+
+So the honest reading is two-part.
+
+### Modules the Node process genuinely covers
+
+These are unit-tested directly, and their numbers are meaningful:
+
+| Module | Statements | Branches | Functions | Lines |
+|---|---|---|---|---|
+| `shared/ssrf.ts` | 87.62% | 78.86% | 95.65% | 95.56% |
+| `shared/crypto.ts` | 94.49% | 92.10% | 95.65% | 94.56% |
+| `shared/cookies.ts` | 83.33% | 75.00% | 80.00% | 91.30% |
+| `shared/html.ts` | 80.00% | 60.00% | 75.00% | 80.00% |
+| `shared/redirect.ts` | 100% | 100% | 100% | 100% |
+| `shared/rate-limit.ts` | 71.42% | 59.25% | 85.71% | 69.56% |
+| `bludit/capabilities.ts` | 96.96% | 97.29% | 100% | 96.87% |
+| `bludit/client.ts` | 78.94% | 67.54% | 78.57% | 80.95% |
+| `proposals/diff.ts` | 91.35% | 91.42% | 100% | 90.00% |
+| `sites/registry-helpers.ts` | 100% | 82.35% | 100% | 100% |
+| `mcp/tools/write-helpers.ts` | 77.50% | 80.43% | 100% | 96.55% |
+
+Partially covered for the same reason — pure logic is unit-tested, the
+binding-dependent part runs in workerd:
+
+| Module | Statements | Why it is partly dark |
+|---|---|---|
+| `shared/rate-limit.ts` | 71.42% | The counter path needs D1 and is covered by the integration suite |
+| `proposals/store.ts` | 45.45% | `assertProposalApplicable` is unit-tested; the D1 functions run in workerd |
+| `sites/pairing.ts` | 20.68% | Proof comparisons are unit-tested; the D1 challenge functions run in workerd |
+| `mcp/tools/intelligence.ts` | 20.56% | `summarizeContent` is unit-tested; the tool registrations run in workerd |
+| `shared/log.ts` | 6.25% | Called from workerd; its console output never reaches the Node process |
+| `bludit/client.ts` | 78.94% | The fetch paths are covered in workerd by the mock and live suites |
+
+### Modules reported at 0% that the integration suite covers
+
+`auth/*` (seven files), `mcp/app.ts`, `mcp/index.ts`, `mcp/server.ts`,
+`mcp/tools/context.ts`, `mcp/tools/pages.ts`, `mcp/tools/result.ts`,
+`mcp/tools/sites.ts`, `mcp/tools/taxonomy.ts`, `mcp/tools/write.ts`,
+`sites/connect.ts`, `sites/credentials.ts`, `sites/registry.ts`.
+
+These include the OAuth authorization flow, the consent page, session handling,
+the site-connection flow, encryption at rest, the MCP transport, the HTTP
+pre-flight and rate-limit enforcement. All are covered end to end by tests
+asserting real behaviour — a token is issued, a `403` names the right scopes, a
+challenge cannot be reused, ciphertext in D1 is not plaintext, a flooded bucket
+returns `429`. Behavioural assertions, not percentage coverage, are the evidence
+for those modules.
+
+Getting a single honest coverage number would mean running the tests inside
+workerd with `@cloudflare/vitest-pool-workers` and merging its coverage with this
+run. That is worth doing and is not done.
+
 
 ## What is not covered
 

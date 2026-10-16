@@ -7,6 +7,14 @@ requirement is not met, it says so.
 Legend: ✅ met · ⚠️ met with a stated limitation · ❌ not met · ⛔ blocked on an
 approval or an external dependency.
 
+Of the 74 requirements and 3 publication objectives below: **67 requirements are
+met**, 5 are met with a stated limitation (the client-compatibility claims, OpenAI
+tool-metadata guidance, the version range, observability and accessibility), 2 are
+not met (verification against any real MCP client product, which is the largest
+gap in the publication case), and all 3 objectives are blocked on an approval or
+on a separate project. Each of those ten is named again in
+`PROJECT_STATUS.md` §4.
+
 ## 1. Purpose
 
 A universal remote MCP server that lets standards-compliant AI clients read,
