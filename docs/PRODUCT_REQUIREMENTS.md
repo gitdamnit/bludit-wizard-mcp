@@ -128,7 +128,10 @@ this project. See `PHP_WIZARD_INTEGRATION.md`.
 | FR-36 | A secure site-connection flow | ✅ | Single-use pairing challenge plus site-side proof |
 | FR-37 | Never fetch arbitrary third-party URLs without validation | ✅ | SSRF policy, redirect revalidation, response bounds, and the runtime flag |
 | FR-38 | Credentials encrypted at rest with separately managed secrets, never logged or returned | ✅ | AES-256-GCM; asserted against real D1 rows; every tool output scanned for plaintext |
-| FR-39 | Rate limiting on OAuth, registration, pairing and MCP | ✅ | Implemented and tested (42 tests); see `SECURITY.md` |
+| FR-39 | Rate limiting on OAuth, registration, pairing and MCP | ✅ | 11 buckets; see `SECURITY.md` |
+| FR-58 | Rate limiting on every other expensive or sensitive endpoint | ✅ | Added for account creation, personal access token creation, consent decisions and capability checks, after an audit showed all four were unprotected |
+| FR-59 | Rate limiting must never hinder a safety action | ✅ | Revocation and sign-out are deliberately unbounded; a test asserts ten consecutive revocations are all accepted |
+| FR-60 | The audit trail is complete and free of secrets | ✅ | Every tool call writes one row: account, site, credential, tool, outcome and an error code. Asserted to contain no credential, no page content and no site label |
 | FR-49 | All twelve clients recorded as explicit compatibility targets | ✅ | §3.2 |
 | FR-50 | A compatibility matrix with transport, authentication, configuration, tested version, read, proposed edit, approved write and verified result | ✅ | `CLIENT_COMPATIBILITY_MATRIX.md` |
 | FR-51 | Per-client setup guides and copyable configuration templates, without secrets | ✅ | `CLIENT_SETUP_GUIDES.md`, `docs/clients/templates/` (20 templates) |

@@ -505,3 +505,38 @@ implicit is one that gets eroded by the next change.
 (couples the products and contradicts the requirement); shipping inference in the
 hosted server (a cost, a privacy change, and a second provider relationship for the
 user).
+
+---
+
+## ADR-024 — What is rate limited, and what deliberately is not
+
+**Context.** The pre-deployment review found four expensive or sensitive endpoints
+entirely unprotected: `POST /signup`, `POST /tokens`, `POST /authorize/decision` and
+`POST /sites/:id/check`. `POST /signup` is reachable with no credential, runs
+PBKDF2, and writes a row — a CPU and storage abuse vector. `POST /sites/:id/check`
+makes four or five outbound requests to the customer's own site, which makes it an
+amplifier pointed at them. The MCP limit was also per client only, so an account
+with twenty authorized clients got twenty separate budgets against the same CMS.
+
+**Decision.** Add five buckets: `signup` (per address), `pat_create`, `consent` and
+`site_check` (per account), and `mcp_account` (per account, aggregate across every
+authorized client). Leave revocation, sign-out, the health check, the public
+metadata documents and all read-only form renders unbounded.
+
+**Consequence.** Every mutating or expensive endpoint is now bounded, and the
+aggregate MCP bucket means many clients cannot together exceed what one account
+should place on a customer's site. The refusals are narrow: five accounts an hour
+from one address, thirty tokens an hour, sixty capability checks an hour.
+
+The part that matters as much as what was added is what was **not**. A rate limit on
+revocation would be actively harmful: the moment a user discovers a leaked token is
+the moment they must be able to kill it, and a limiter that stalls them trades a
+theoretical abuse for a real incident. The same reasoning applies to sign-out, and a
+limit on the health check would make monitoring report an outage it caused. A test
+asserts that ten consecutive revocations are all accepted, so this cannot regress.
+
+**Alternatives considered.** Lowering the PBKDF2 iteration count to make signup cheap
+enough not to need a limit (weakens password storage for everyone); a CAPTCHA
+(a third-party dependency and a new approval, for a service with a handful of
+users); limiting every endpoint uniformly (protection theatre, and it would have
+caught revocation).

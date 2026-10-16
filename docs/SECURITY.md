@@ -82,6 +82,17 @@ read scopes are included in every challenge, so a client cannot end up holding
 
 No scope grants deletion, because no tool performs it.
 
+### Audit trail
+
+Every tool call writes one row: the account, the site, the credential that acted,
+the tool, an outcome of `ok` / `denied` / `error`, and — on failure — a stable error
+*code* rather than a message, because a message could carry upstream text.
+
+The credential is recorded as either the OAuth `client_id` or `pat:<id>`, so the
+two are never conflated and either can be revoked without the other. A test asserts
+that the trail contains no credential, no page content and no site label, and that
+every row is scoped to an account.
+
 ### Pagination and revision safety
 
 `proposals.base_revision` is a hash of the fields a write can change. `apply_approved_edit`
@@ -104,6 +115,25 @@ tests).
 | `pairing` | account | 20 / hour | Pairing-challenge floods |
 | `connect` | account | 30 / hour | Repeated connection attempts, successful or not |
 | `mcp` | account and client | 300 / min | Tool-call abuse, per client rather than per account |
+| `mcp_account` | account | 600 / min | Aggregate load on a customer's site, however many clients the account authorized |
+| `signup` | address | 5 / hour | Account-creation abuse: the most expensive unauthenticated endpoint on the service |
+| `pat_create` | account | 30 / hour | Minting long-lived credentials |
+| `consent` | account | 120 / hour | Accepting authorization requests, each of which writes a grant |
+| `site_check` | account | 60 / hour | Outbound amplification pointed at a customer's own site |
+
+Every bucket is overridable per deployment with `RL_<NAME>` in
+`"<limit>/<windowSeconds>"` form, so no limit needs a code change to adjust.
+
+**Deliberately not rate limited**, recorded so the gaps are choices:
+
+| Endpoint | Why not |
+|---|---|
+| `POST /clients/:id/revoke` | A safety action. A user who cannot revoke a leaked client is worse off than the abuse a limit would prevent. |
+| `POST /tokens/:id/revoke` | Same, and more so: this is how a leaked token is stopped. A test asserts ten revocations in a row are all accepted. |
+| `GET /signout` | Ends a session. Limiting it helps nobody. |
+| `GET /healthz` | A liveness probe. A limit would make monitoring report an outage. |
+| `GET /.well-known/*` | Public static metadata that a client must reach before it has any credential. |
+| `GET /`, `/signin`, `/signup`, `/sites`, `/clients`, `/tokens` | Form and list renders. Every mutating verb is bounded. |
 
 Design properties that matter:
 
@@ -241,6 +271,7 @@ regression test.
 | Low | A 404 on `/api/pages` was reported as `not_found` ("the page does not exist") when it actually means the API plugin is disabled. | Added `capability_unavailable` for endpoint-level 404s. |
 | Low | The mock's tag listing used a malformed Set construction (`Array#flat` in the wrong place), which also revealed that the tool could not distinguish tag arrays from comma-joined strings. | Fixed both. |
 | Medium | Every `/sites` route dereferenced `session.user` without checking for a session, so an unauthenticated visit returned a 500 rather than redirecting to sign in. Found by the first browser test written against those pages. | Added a session guard middleware over `/sites` and `/sites/*`. |
+| **High** | **Four expensive or sensitive endpoints were entirely unprotected**: `POST /signup`, `POST /tokens`, `POST /authorize/decision` and `POST /sites/:id/check`. `POST /signup` is reachable with no credential at all and each request runs PBKDF2 plus a database write, making it a CPU and storage abuse vector; `POST /sites/:id/check` makes four or five outbound requests to a customer's own site, making it an amplifier pointed at them. Found by the pre-deployment rate-limit audit. | Added `signup`, `pat_create`, `consent` and `site_check` buckets, plus `mcp_account` for aggregate load. Revocation is deliberately left unbounded, and a test asserts that. |
 | High | `tags` is a comma-joined **string** on the wire, not an array. `search_pages` and `get_related_pages` called `.some()` on it and threw, returning `internal_error` on a real site; `summarizePage` discarded every page's tags. Found by the first live test run against real Bludit. | Added `pageTags()` and used it in every tag read. The mock was the thing that was wrong, and it now reproduces the real representation. |
 | Medium | `category` is `false`, not a string, when a page has no category or when its stored category is not one the site defines. `search_pages` threw `false.toLowerCase is not a function`. Found by the same live run. | Added `pageCategory()`, typed the field as `string \| false`, and documented that the `category` write argument is inert unless the category exists. |
 
@@ -304,9 +335,12 @@ between a usable internal deployment and a defensible public one.
 
 ## Verification status
 
-Everything above is asserted by the test suite: **357 tests** —
-210 unit, 105 integration in real workerd, 9 compatibility across modelled Bludit
-variants, 24 against real Bludit installations, and 9 in a real browser. `docs/TEST_REPORT.md` records what was measured and on which
+Everything above is asserted by the test suite: **428 tests** —
+222 unit, 164 integration in real workerd, 9 compatibility across modelled Bludit
+variants, 24 against real Bludit installations, and 9 in a real browser. Two
+`RATE_LIMIT_ENABLED=false` test profiles keep every other suite independent of the
+production limits, while `production-config.test.ts` asserts the deployable configs
+do not disable them. `docs/TEST_REPORT.md` records what was measured and on which
 commit.
 
 Things that are **not** verified and are not claimed:

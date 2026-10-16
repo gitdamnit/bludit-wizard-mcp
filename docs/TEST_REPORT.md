@@ -41,8 +41,8 @@ this project.
 
 ```
 # Hermetic — unit, integration and compatibility
-Test Files  22 passed (22)
-     Tests  378 passed (378)
+Test Files  23 passed (23)
+     Tests  395 passed (395)
 
 # Live — real Bludit Community and Pro
 Test Files  1 passed (1)
@@ -52,14 +52,14 @@ Test Files  1 passed (1)
     9 passed
 ```
 
-**411 tests, all passing.** No test is skipped or expected to fail.
+**428 tests, all passing.** No test is skipped or expected to fail.
 
 ### By suite
 
 | Suite | Files | Tests | Kind | Needs |
 |---|---|---|---|---|
 | `test/unit/` | 11 | 222 | Pure logic, Node only | Nothing |
-| `test/integration/` | 10 | 147 | Two Workers in workerd, real Service Binding, real HTTP | Nothing |
+| `test/integration/` | 11 | 164 | Two Workers in workerd, real Service Binding, real HTTP | Nothing |
 | `test/compat/` | 1 | 9 | Five modelled Bludit variants | Nothing |
 | `test/live/` | 1 | 24 | Real Bludit Community and Pro in containers | Docker, `PRO_ZIP` for Pro |
 | `test/browser/` | 1 | 9 | Playwright, headless Chromium, same in-process Workers | A cached Chromium build |
@@ -91,12 +91,13 @@ because a suite that needs a live system stops being run.
 | `mcp-tools.test.ts` | 35 | All 19 tools against the mock API; proposal lifecycle; revision mismatches; upstream failure mapping; credential non-leakage; traversal keys; the content-scan subrequest cap |
 | `oauth-security.test.ts` | 20 | Scope step-up, audience rejection, per-client isolation and revocation, per-account isolation, cross-account proposal rejection, PKCE, code replay, redirect-URI mismatch, unknown client, consent denial, CSRF, remembered consent, refresh, CIMD rejection |
 | `security-controls.test.ts` | 15 | The four controls below, asserted together |
-| `rate-limit.test.ts` | 14 | Every bucket driven to refusal over HTTP; window reset; per-client isolation; storage and PII; disabled mode |
+| `rate-limit.test.ts` | 20 | Every bucket driven to refusal over HTTP, including the four added by the pre-deployment audit; window reset; per-client and per-account isolation; storage and PII; disabled mode; and that revocation is never throttled |
+| `audit-review.test.ts` | 8 | The audit trail for both credential types: one row per call with account, site, credential and outcome; an error recorded as a code not a message; and that the trail holds no credential, no page content and no site label |
 | `site-connect.test.ts` | 11 | Pairing by ownership file and by Wizard HMAC, missing proof, wrong challenge, challenge reuse, URL binding, encryption at rest read out of D1, invalid proof |
 | `production-shape.test.ts` | 7 | Boot under `global_fetch_strictly_public`, CIMD advertisement, resource metadata, full authorization, loopback refusal, cloud-metadata refusal |
 | `smoke.test.ts` | 3 | Both Workers boot, schema applies, discovery chain works |
 | `protocol-surface.test.ts` | 22 | The facts client compatibility turns on: the `401` challenge, no session id, protocol-revision negotiation with old and new clients, four `Accept` variants, CORS behaviour, and that all 19 tools carry all four annotation hints |
-| `pats.test.ts` | 16 | Personal access tokens end to end: creation through the UI shown once, digest-only storage, bearer use, the same scope enforcement and tenancy as an OAuth token, no delete, review-before-write, immediate revocation, expiry, and per-token audit |
+| `pats.test.ts` | 19 | Personal access tokens end to end: creation through the UI shown once, digest-only storage, bearer use, the same scope enforcement and tenancy as an OAuth token, no delete, review-before-write, immediate revocation, expiry, per-token audit, and that a token is not a session, cannot widen its own scopes and cannot skip the approval gate |
 | `client-journey.test.ts` | 4 | The nine-step journey, walked twice — once per credential type |
 
 #### Security-control confirmations
@@ -110,6 +111,22 @@ claims together, rather than reconstructing each from a feature test.
 | Grant revocation | Revoked client's token → `401` while another client's still works; refresh after revocation refused; per-client revocation confirmed in the UI listing |
 | Cross-account isolation | 12 probes with a second account's site id, each `not_found` and never `forbidden`; no label, URL or site title in any response; the site is unchanged afterwards; a proposal is not applicable by another account and remains applicable to its owner |
 | SSRF | Nine reserved/internal/credential-bearing URLs refused with the specific reason; three scheme refusals; and a test that documents that Miniflare does not enforce the platform egress flag locally |
+
+## Pre-deployment security-gate evidence
+
+| Claim | Where it is asserted |
+|---|---|
+| Account creation is bounded per address, and a legitimate signup still works | `rate-limit.test.ts` |
+| Personal access token creation is bounded per account | `rate-limit.test.ts` |
+| Capability re-checks are bounded, so the endpoint is not an outbound amplifier | `rate-limit.test.ts` |
+| Consent decisions are bounded per account | `rate-limit.test.ts` |
+| MCP load is bounded per account in aggregate, not only per client | `rate-limit.test.ts` |
+| Revocation is never throttled — ten consecutive revocations all succeed | `rate-limit.test.ts` |
+| The deployable configuration does not disable rate limiting | `production-config.test.ts` |
+| Every bucket is reachable through an `RL_*` override, so no limit needs a code change | `rate-limit.test.ts`, `rate-limit.test.ts` unit |
+| The audit trail holds no credential, no page content and no site label | `audit-review.test.ts` |
+| A personal access token cannot act as a session, widen its scopes, skip the approval gate or delete | `pats.test.ts` |
+| Transport and annotations did not regress | `protocol-surface.test.ts`, unchanged and passing |
 
 ## Client compatibility evidence
 

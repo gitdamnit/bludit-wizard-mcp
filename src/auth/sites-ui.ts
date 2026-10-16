@@ -124,6 +124,16 @@ export function registerSiteRoutes(app: AuthApp): void {
 
   app.post('/sites/:id/check', async (c) => {
     const session = c.get('session');
+
+    // A capability re-check makes four or five outbound requests to the customer's
+    // own site, so an unbounded endpoint here is an amplifier pointed at them.
+    const limited = await enforceRateLimit(c.env.DB, c.env, 'site_check', [session.user.id], {
+      format: 'json',
+      message: 'Too many capability checks. Please wait and try again.',
+      secret: c.env.SESSION_SECRET
+    });
+    if (limited) return limited;
+
     const form = await readForm(c.req.raw);
     if (!(await verifyCsrf(c.env, session, form.csrf ?? ''))) {
       return forbidden();

@@ -220,6 +220,84 @@ describe('use as a bearer credential', () => {
     expect(probe.raw).not.toContain('PAT test site');
   });
 
+  it('cannot be used as a session, so it cannot reach the account UI', async () => {
+    // A token authenticates MCP requests. It is not a session cookie, so the
+    // account pages — including the page that mints more tokens — refuse it.
+    const { token } = await createToken(account, 'not a session', ['sites:read', 'pages:read']);
+    for (const path of ['/tokens', '/sites', '/clients']) {
+      const response = await harness.auth.fetch(`${AUTH_ORIGIN}${path}`, {
+        headers: { authorization: `Bearer ${token}` },
+        redirect: 'manual'
+      });
+      expect(response.status, path).toBe(302);
+      expect(response.headers.get('location'), path).toContain('/signin');
+    }
+  });
+
+  it('cannot widen its own scopes or mint another token', async () => {
+    const { token } = await createToken(account, 'cannot escalate', ['sites:read', 'pages:read']);
+
+    // There is no tool that changes a token, and no tool that creates one.
+    const tools = await (async () => {
+      const response = await harness.mcp.fetch(MCP_RESOURCE, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
+      });
+      return ((await response.json()) as { result?: { tools?: Array<{ name: string }> } }).result?.tools ?? [];
+    })();
+    const names = tools.map((tool) => tool.name);
+    expect(names).not.toContain('create_token');
+    expect(names).not.toContain('grant_scope');
+
+    // And the write it cannot do stays refused.
+    const refused = await callTool(harness.mcp, token, 'create_page', {
+      site: siteId,
+      title: 'Escalation attempt',
+      content: 'nope'
+    });
+    expect(refused.status).toBe(403);
+  });
+
+  it('cannot skip the approval gate', async () => {
+    const { token } = await createToken(account, 'approval gate', ['sites:read', 'pages:read', 'pages:write']);
+    const created = await callTool(harness.mcp, token, 'create_page', {
+      site: siteId,
+      title: `Gate check ${Date.now()}`,
+      content: '# gate\n',
+      type: 'draft'
+    });
+    const key = (created.data as { key: string }).key;
+    const proposed = await callTool(harness.mcp, token, 'propose_page_edit', {
+      site: siteId,
+      key,
+      operation: 'edit',
+      description: 'Must not apply without confirmation'
+    });
+    const proposalId = (proposed.data as { proposalId: string }).proposalId;
+    const before = site.pages.get(key)?.description;
+
+    // No `confirm: true` means no write, for a token exactly as for an OAuth client.
+    const unconfirmed = await callTool(harness.mcp, token, 'apply_approved_edit', {
+      site: siteId,
+      proposal_id: proposalId
+    });
+    expect(unconfirmed.isError).toBe(true);
+    expect(site.pages.get(key)?.description).toBe(before);
+
+    // And the proposal is still usable once confirmation is given.
+    const applied = await callTool(harness.mcp, token, 'apply_approved_edit', {
+      site: siteId,
+      proposal_id: proposalId,
+      confirm: true
+    });
+    expect(applied.isError).toBe(false);
+  });
+
   it('never exposes page deletion, whatever scopes it holds', async () => {
     const { token } = await createToken(account, 'cannot delete', ['sites:read', 'pages:read', 'pages:write']);
     const { body } = await (async () => {

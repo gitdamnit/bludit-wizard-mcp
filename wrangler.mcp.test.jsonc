@@ -7,7 +7,8 @@
   "vars": {
     "AUTH_ISSUER": "http://127.0.0.1:8787",
     "MCP_RESOURCE": "http://127.0.0.1:8788/mcp",
-    "ALLOW_INSECURE_SITE_URLS": "true",
+        "ALLOW_INSECURE_SITE_URLS": "true",
+    "RATE_LIMIT_ENABLED": "false",
     "PROPOSAL_TTL_SECONDS": "900",
     "SITE_CREDENTIAL_KEY": "XlyeP38PtmqkrXQqxoIEKKl014GoRzewkOw1FGeZF+w="
   },

@@ -17,6 +17,7 @@ import {
   PAT_PREFIX
 } from '../shared/pats.js';
 import { isToolError } from '../shared/errors.js';
+import { enforceRateLimit } from '../shared/rate-limit.js';
 import { verifyCsrf } from './sessions.js';
 import type { AuthApp, AuthContext } from './types.js';
 
@@ -36,6 +37,17 @@ export function registerTokenRoutes(app: AuthApp): void {
 
   app.post('/tokens', async (c) => {
     const session = c.get('session');
+
+    // Each token is a long-lived credential and a row. Bounded per account, before
+    // the body is read. Revocation below is deliberately not bounded: revoking a
+    // leaked token must never be throttled.
+    const limited = await enforceRateLimit(c.env.DB, c.env, 'pat_create', [session.user.id], {
+      format: 'json',
+      message: 'Too many tokens have been created recently. Please wait and try again.',
+      secret: c.env.SESSION_SECRET
+    });
+    if (limited) return limited;
+
     const form = await readForm(c.req.raw);
     if (!(await verifyCsrf(c.env, session, form.csrf ?? ''))) return forbidden();
 

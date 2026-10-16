@@ -21,7 +21,9 @@ import {
   type Account,
   type DiscoveredServer
 } from '../harness/oauth-client.js';
-import { requestChallenge, submitSite } from '../harness/site.js';
+import { connectSiteWithWellKnownFile, requestChallenge, submitSite } from '../harness/site.js';
+import { RATE_LIMIT_NAMES, rateLimitVarName } from '../../src/shared/rate-limit.js';
+import { startMockBludit } from '../harness/mock-bludit.js';
 import { mcpCall } from '../harness/oauth-client.js';
 import type { AnyResponse } from '../harness/response.js';
 
@@ -30,7 +32,22 @@ import type { AnyResponse } from '../harness/response.js';
  * only needs to see the refusal, and a short window where the test needs to see
  * it reset.
  */
+/**
+ * Values that keep the file's other tests unaffected by the buckets they are not
+ * about. `RATE_LIMIT_ENABLED` is off in the Worker configs so no other suite
+ * depends on production defaults; this file turns it on explicitly.
+ */
+const GENEROUS = {
+  RATE_LIMIT_ENABLED: 'true',
+  RL_SIGNUP: '1000/3600',
+  RL_PAT_CREATE: '1000/3600',
+  RL_CONSENT: '1000/3600',
+  RL_SITE_CHECK: '1000/3600',
+  RL_MCP_ACCOUNT: '100000/60'
+} as const;
+
 const TIGHT_LIMITS = {
+  ...GENEROUS,
   RL_REGISTER: '2/3600',
   RL_SIGNIN: '2/900',
   RL_AUTHORIZE: '2/3600',
@@ -88,6 +105,118 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await harness?.close();
+});
+
+describe('account creation', () => {
+  it('refuses a fourth signup from one address and allows a normal one', async () => {
+    // Account creation is the most expensive unauthenticated endpoint: PBKDF2 plus
+    // a row, reachable with no credential at all.
+    const limited = await startHarness('runtime', { auth: { ...GENEROUS, RL_SIGNUP: '2/3600' } });
+    try {
+      const attempt = (n: number) =>
+        limited.auth.fetch(`${AUTH_ORIGIN}/signup`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded', 'cf-connecting-ip': '203.0.113.60' },
+          body: new URLSearchParams({
+            email: `signup-${n}-${Date.now()}@example.test`,
+            password: 'a-sufficiently-long-password'
+          }).toString(),
+          redirect: 'manual'
+        });
+
+      expect((await attempt(1)).status).toBe(303);
+      expect((await attempt(2)).status).toBe(303);
+      const refused = await attempt(3);
+      expect(refused.status).toBe(429);
+      expect(await refused.text()).toContain('Too many accounts');
+    } finally {
+      await limited.close();
+    }
+  }, 300_000);
+
+  it('does not lock out a different address', async () => {
+    const limited = await startHarness('runtime', { auth: { ...GENEROUS, RL_SIGNUP: '1/3600' } });
+    try {
+      const signup = (ip: string) =>
+        limited.auth.fetch(`${AUTH_ORIGIN}/signup`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded', 'cf-connecting-ip': ip },
+          body: new URLSearchParams({
+            email: `aside-${crypto.randomUUID()}@example.test`,
+            password: 'a-sufficiently-long-password'
+          }).toString(),
+          redirect: 'manual'
+        });
+      expect((await signup('203.0.113.61')).status).toBe(303);
+      expect((await signup('203.0.113.61')).status).toBe(429);
+      expect((await signup('203.0.113.62')).status).toBe(303);
+    } finally {
+      await limited.close();
+    }
+  }, 300_000);
+});
+
+describe('personal access token management', () => {
+  it('refuses a third token and still allows legitimate creation', async () => {
+    const limited = await startHarness('runtime', { auth: { ...GENEROUS, RL_PAT_CREATE: '2/3600' } });
+    try {
+      const account = await createAccount(limited.auth, `pat-limit-${crypto.randomUUID()}@example.test`);
+      const create = async (label: string) => {
+        const page = await limited.auth.fetch(`${AUTH_ORIGIN}/tokens`, { headers: { cookie: account.jar.header() } });
+        account.jar.absorb(page);
+        const csrf = /name="csrf" value="([^"]*)"/.exec(await page.text())?.[1] as string;
+        return limited.auth.fetch(`${AUTH_ORIGIN}/tokens`, {
+          method: 'POST',
+          headers: { cookie: account.jar.header(), 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ csrf, label, ttlDays: '30', scope: 'sites:read' }).toString()
+        });
+      };
+
+      expect((await create('first')).status).toBe(200);
+      expect((await create('second')).status).toBe(200);
+      const refused = await create('third');
+      expect(refused.status).toBe(429);
+      expect(await refused.text()).toContain('Too many tokens');
+    } finally {
+      await limited.close();
+    }
+  }, 300_000);
+
+  it('never throttles revocation, because revoking a leaked token is a safety action', async () => {
+    const limited = await startHarness('runtime', { auth: { ...GENEROUS, RL_PAT_CREATE: '1/3600' } });
+    try {
+      const account = await createAccount(limited.auth, `pat-revoke-${crypto.randomUUID()}@example.test`);
+      const page = await limited.auth.fetch(`${AUTH_ORIGIN}/tokens`, { headers: { cookie: account.jar.header() } });
+      account.jar.absorb(page);
+      const html = await page.text();
+      const csrf = /name="csrf" value="([^"]*)"/.exec(html)?.[1] as string;
+      await limited.auth.fetch(`${AUTH_ORIGIN}/tokens`, {
+        method: 'POST',
+        headers: { cookie: account.jar.header(), 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ csrf, label: 'revoke me', ttlDays: '30', scope: 'sites:read' }).toString()
+      });
+
+      const rows = await limited.server.getWorker('test-schema').fetch('http://schema.test/query', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sql: 'SELECT id FROM personal_access_tokens' })
+      });
+      const id = ((await rows.json()) as { results: Array<{ id: string }> }).results[0]?.id as string;
+
+      // Ten revocations in a row must all be accepted, even with creation capped at 1.
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const response = await limited.auth.fetch(`${AUTH_ORIGIN}/tokens/${id}/revoke`, {
+          method: 'POST',
+          headers: { cookie: account.jar.header(), 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ csrf }).toString(),
+          redirect: 'manual'
+        });
+        expect(response.status, `revocation attempt ${attempt + 1}`).toBe(303);
+      }
+    } finally {
+      await limited.close();
+    }
+  }, 300_000);
 });
 
 describe('client registration (DCR)', () => {
@@ -249,9 +378,99 @@ describe('site pairing and connection', () => {
   });
 });
 
+describe('consent decisions and capability checks', () => {
+  it('refuses a second consent decision, and a second capability check', async () => {
+    const limited = await startHarness('runtime', {
+      auth: { ...GENEROUS, RL_CONSENT: '1/3600', RL_SITE_CHECK: '1/3600' }
+    });
+    const mock = await startMockBludit({
+      apiToken: 'rl-api',
+      authToken: 'rl-auth',
+      siteTitle: 'Rate limit site',
+      pages: [{ title: 'Home', content: '# Home\n', type: 'published' }]
+    });
+    try {
+      const as = await discover(limited.mcp, limited.auth);
+      const account = await createAccount(limited.auth, `consent-limit-${crypto.randomUUID()}@example.test`);
+      const client = await registerClient(limited.auth, as, 'http://127.0.0.1:7940/callback');
+
+      // A capability check makes several outbound requests, so it is bounded per
+      // account rather than left to hammer a customer's own site.
+      const outcome = await connectSiteWithWellKnownFile(
+        limited.auth,
+        account,
+        { siteUrl: mock.url, apiToken: 'rl-api', authToken: 'rl-auth', label: 'Rate limit site' },
+        (challenge) => mock.setChallenge(challenge)
+      );
+      expect(outcome.ok, outcome.html.slice(0, 300)).toBe(true);
+
+      const check = async () => {
+        const page = await limited.auth.fetch(`${AUTH_ORIGIN}/sites`, { headers: { cookie: account.jar.header() } });
+        account.jar.absorb(page);
+        const csrf = /name="csrf" value="([^"]*)"/.exec(await page.text())?.[1] as string;
+        return limited.auth.fetch(`${AUTH_ORIGIN}/sites/${outcome.siteId}/check`, {
+          method: 'POST',
+          headers: { cookie: account.jar.header(), 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ csrf }).toString(),
+          redirect: 'manual'
+        });
+      };
+      expect((await check()).status).toBe(303);
+      const checkRefused = await check();
+      expect(checkRefused.status).toBe(429);
+      expect(await checkRefused.text()).toContain('Too many capability checks');
+
+      // One consent is allowed; the next is refused before the handle is even read.
+      const consent = async () => {
+        const pkce = await createPkce();
+        const url = new URL(as.authorization_endpoint);
+        for (const [key, value] of Object.entries({
+          response_type: 'code',
+          client_id: client.clientId,
+          redirect_uri: client.redirectUri,
+          scope: 'sites:read pages:read',
+          state: 'rl-consent',
+          code_challenge: pkce.challenge,
+          code_challenge_method: 'S256',
+          resource: MCP_RESOURCE
+        })) {
+          url.searchParams.set(key, value);
+        }
+        const page = await limited.auth.fetch(url.toString(), {
+          headers: { cookie: account.jar.header() },
+          redirect: 'manual'
+        });
+        account.jar.absorb(page);
+        const html = await page.text();
+        const form = new URLSearchParams({
+          csrf: /name="csrf" value="([^"]*)"/.exec(html)?.[1] as string,
+          handle: /name="handle" value="([^"]*)"/.exec(html)?.[1] as string,
+          decision: 'allow'
+        });
+        for (const scope of [...new Set([...html.matchAll(/name="scope" value="([^"]+)"/g)].map((m) => m[1] as string))]) {
+          form.append('scope', scope);
+        }
+        return limited.auth.fetch(`${AUTH_ORIGIN}/authorize/decision`, {
+          method: 'POST',
+          headers: { cookie: account.jar.header(), 'content-type': 'application/x-www-form-urlencoded' },
+          body: form.toString(),
+          redirect: 'manual'
+        });
+      };
+      expect((await consent()).status).toBe(303);
+      const consentRefused = await consent();
+      expect(consentRefused.status).toBe(429);
+      expect(await consentRefused.text()).toContain('Too many authorization decisions');
+    } finally {
+      await mock.close();
+      await limited.close();
+    }
+  }, 300_000);
+});
+
 describe('MCP requests', () => {
   it('refuses once the per-account-and-client budget is spent, and resets after the window', async () => {
-    const limited = await startHarness('runtime', { auth: { ...TIGHT_LIMITS }, mcp: { RL_MCP: '1/2' } });
+    const limited = await startHarness('runtime', { auth: { ...TIGHT_LIMITS }, mcp: { ...GENEROUS, RL_MCP: '1/2' } });
     try {
       const limitedAs = await discover(limited.mcp, limited.auth);
       const limitedAccount = await createAccount(limited.auth, `mcp-rl-${crypto.randomUUID()}@example.test`);
@@ -304,8 +523,38 @@ describe('MCP requests', () => {
     }
   }, 300_000);
 
+  it('bounds an account in aggregate, however many clients it has authorized', async () => {
+    // Two clients, each with its own budget, but a low aggregate cap: the second
+    // call from either client must fail. This is what protects a customer's CMS
+    // from an account that authorized many clients.
+    const limited = await startHarness('runtime', { auth: { ...GENEROUS }, mcp: { ...GENEROUS, RL_MCP_ACCOUNT: '1/300', RL_MCP: '100/300' } });
+    try {
+      const as = await discover(limited.mcp, limited.auth);
+      const account = await createAccount(limited.auth, `mcp-agg-${crypto.randomUUID()}@example.test`);
+      const client = await registerClient(limited.auth, as, 'http://127.0.0.1:7941/callback');
+      const tokens = await accessToken(limited.auth, account, { as, client, scope: 'sites:read pages:read' });
+
+      expect((await callTool(limited.mcp, tokens.access_token, 'list_sites', {})).status).toBe(200);
+
+      // A 429 is an HTTP-level refusal, not a JSON-RPC error, so read the body.
+      const refused = await mcpCall(limited.mcp, tokens.access_token, {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/list',
+        params: {}
+      });
+      expect(refused.status).toBe(429);
+      // `mcpCall` has already read the body, so read the parsed result it kept.
+      const body = refused.body as unknown as { error: string; message: string };
+      expect(body.error).toBe('rate_limited');
+      expect(body.message).toContain('for this account');
+    } finally {
+      await limited.close();
+    }
+  }, 300_000);
+
   it('does not let one client exhaust the budget of another client on the same account', async () => {
-    const other = await startHarness('runtime', { auth: { ...TIGHT_LIMITS }, mcp: { RL_MCP: '1/300' } });
+    const other = await startHarness('runtime', { auth: { ...TIGHT_LIMITS }, mcp: { ...GENEROUS, RL_MCP: '1/300' } });
     try {
       const otherAs = await discover(other.mcp, other.auth);
       const otherAccount = await createAccount(other.auth, `mcp-iso-${crypto.randomUUID()}@example.test`);
@@ -338,8 +587,16 @@ describe('storage and configuration', () => {
   it('stores no IP address and no email address', async () => {
     const rows = await queryRateLimits();
     expect(rows.length).toBeGreaterThan(0);
+    // Every counter, including the ones added by the final security gate, so a
+    // new bucket cannot be introduced with a key that leaks an identifier.
+    const allowed = new RegExp(`^(${RATE_LIMIT_NAMES.join('|')}):[0-9a-f]{32}$`);
     for (const row of rows) {
-      expect(row.bucket).toMatch(/^(signin|authorize|token|register|pairing|connect|mcp):[0-9a-f]{32}$/);
+      expect(row.bucket, row.bucket).toMatch(allowed);
+    }
+    // And every bucket is reachable through an `RL_*` override, so a limit can be
+    // changed without a code change.
+    for (const name of RATE_LIMIT_NAMES) {
+      expect(rateLimitVarName(name)).toMatch(/^RL_[A-Z_]+$/);
     }
     const serialized = JSON.stringify(rows);
     for (const identifier of ['203.0.113', 'ratelimit@', 'example.test', 'unknown']) {
@@ -357,8 +614,8 @@ describe('storage and configuration', () => {
 
   it('can be turned off entirely, and then allows everything', async () => {
     const disabled = await startHarness('runtime', {
-      auth: { RATE_LIMIT_ENABLED: 'false', ...TIGHT_LIMITS },
-      mcp: { RATE_LIMIT_ENABLED: 'false', ...TIGHT_LIMITS }
+      auth: { ...TIGHT_LIMITS, RATE_LIMIT_ENABLED: 'false' },
+      mcp: { ...GENEROUS, RATE_LIMIT_ENABLED: 'false' }
     });
     try {
       for (let attempt = 0; attempt < 5; attempt += 1) {

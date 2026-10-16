@@ -168,7 +168,9 @@ npm run dev:mcp                  # terminal 2 — http://localhost:8788
 ```
 
 Deployment, including the resource creation, secrets, migration, ordering and
-approval gates, is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Nothing in this
+approval gates, is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), and the
+deployment-readiness gate is in
+[docs/DEPLOYMENT_READINESS.md](docs/DEPLOYMENT_READINESS.md). Nothing in this
 repository deploys, creates resources, or changes DNS on its own.
 
 Cost: **$5/month** (Workers Paid) for a small deployment. The free tier is not
@@ -293,12 +295,13 @@ Report a vulnerability privately — see [docs/SECURITY.md](docs/SECURITY.md).
 | [CLIENT_COMPATIBILITY.md](docs/CLIENT_COMPATIBILITY.md) | How to verify an MCP client, and what is unverified |
 | [TEST_REPORT.md](docs/TEST_REPORT.md) | Measured results, environment, limitations |
 | [OPENAI_PUBLICATION_CHECKLIST.md](docs/OPENAI_PUBLICATION_CHECKLIST.md) | Publication readiness, test cases, remaining steps |
+| [DEPLOYMENT_READINESS.md](docs/DEPLOYMENT_READINESS.md) | Exact Cloudflare resources, cost, remaining risks, and the safe deploy sequence |
 | [CLIENT_COMPATIBILITY_MATRIX.md](docs/CLIENT_COMPATIBILITY_MATRIX.md) | Twelve client targets: transport, auth, configuration, and what is verified |
 | [CLIENT_SETUP_GUIDES.md](docs/CLIENT_SETUP_GUIDES.md) | One setup guide per client, with copyable templates |
 | [CLIENT_GAP_ANALYSIS.md](docs/CLIENT_GAP_ANALYSIS.md) | What already worked, what needed building, and what was deliberately not built |
 | [PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) | Requirements with status and evidence |
 | [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | Current state, remaining risks, what the first deployment needs |
-| [DECISION_LOG.md](docs/DECISION_LOG.md) | Twenty-three decisions with their reasons |
+| [DECISION_LOG.md](docs/DECISION_LOG.md) | Twenty-four decisions with their reasons |
 
 ## Contributing
 

@@ -10,7 +10,7 @@ resource created; nothing published.
 | Area | State |
 |---|---|
 | Implementation | Complete: 19 MCP tools, OAuth 2.1 authorization server, resource server, site pairing, proposals, rate limiting |
-| Hermetic test suite | **378 passing** across 22 files |
+| Hermetic test suite | **395 passing** across 23 files |
 | Live test suite | **24 passing** against real Bludit Community 3.22.0 and real Bludit Pro 3.22.0 |
 | Client compatibility | Twelve targets researched from official documentation; **none tested**. One `readOnlyHint`/`destructiveHint` gap and one `Accept`-header gap closed; a personal-access-token path added for the four surfaces that cannot do OAuth |
 | Live compatibility | Verified, both editions |
@@ -27,7 +27,8 @@ resource created; nothing published.
 | Multi-tenant isolation holds | Per-client and per-account tests; another account's site id, pages, capabilities and proposals all refused with `not_found` |
 | Credentials are encrypted at rest | Read back out of real D1: ciphertext, no plaintext, distinct ciphertext for identical credentials on two sites, and every read tool's output scanned for the token |
 | SSRF defence holds | Reserved ranges, IPv4-mapped/NAT64/6to4, obfuscated literals, internal hostnames, embedded credentials, scheme rules, redirect revalidation, response bounds |
-| Rate limiting holds | 42 tests across every bucket, including window reset, per-client isolation, no PII in storage, and a disabled-mode test |
+| Rate limiting holds | 48 tests across eleven buckets, including window reset, per-client and per-account isolation, no PII in storage, a disabled-mode test, and that revocation is never throttled |
+| The audit trail is complete and clean | `audit-review.test.ts`: one row per tool call for both credential types, a code rather than a message on failure, and no credential, page content or site label anywhere in it |
 | The protocol surface matches what clients need | `protocol-surface.test.ts`: 19 tools each carrying all four annotation hints, `401` challenge shape, resource metadata, four `Accept` variants, old and new protocol revisions, no session id, no legacy `/sse` |
 | The nine-step client journey works | `client-journey.test.ts` walks all nine steps twice, once per credential type |
 | The token path is a credential, not a bypass | `pats.test.ts`: same scope enforcement, same tenancy, no delete, review-before-write, immediate revocation, expiry enforced, no plaintext stored, per-token audit |
@@ -37,7 +38,17 @@ resource created; nothing published.
 
 ## 3. Defects found during this work
 
-Eleven, all fixed and all with regression tests. Nine are in `SECURITY.md`; the
+Fifteen, all fixed and all with regression tests. The four most recent were found
+by the pre-deployment rate-limit audit, and one of them is the most serious
+functional finding in the project:
+
+| Severity | Finding |
+|---|---|
+| **High** | Four expensive or sensitive endpoints were entirely unprotected: `POST /signup`, `POST /tokens`, `POST /authorize/decision`, `POST /sites/:id/check`. `/signup` needs no credential and runs PBKDF2 plus a write, making it a CPU and storage abuse vector. `/sites/:id/check` makes four or five outbound requests to a customer's own site. |
+| Medium | The MCP limit was per client only, so an account with many authorized clients got a fresh budget per client against the same CMS. |
+| Medium | No audit-logging test existed, so the completeness and cleanliness of the trail was an assumption. |
+
+The first eleven are below. Nine are in `SECURITY.md`; the
 three below were found by live testing and are the most instructive:
 
 | Severity | Finding | How it surfaced |
@@ -102,6 +113,16 @@ deployment; the ones marked *public* must be closed before a public launch.
 | `get_website_settings` needs an admin auth token | No | No | Bludit's own rule, disclosed in the capability report. |
 | No `/.well-known/security.txt` | No | No | Nice to have for coordinated disclosure. |
 | Wizard pairing contract is proposed, not implemented in PHP | No | No | The ownership-file path is complete and plugin-free. |
+
+## 4a. Deployment readiness
+
+The full gate is [DEPLOYMENT_READINESS.md](DEPLOYMENT_READINESS.md): exact
+resource list, a $5/month cost breakdown, the remaining risks split by what they
+block, and the ordered deploy sequence for temporary `workers.dev` endpoints.
+
+Summary: **1 KV namespace, 1 D1 database, 2 Workers, 3 secrets, one shared value.**
+No DNS change. Workers Paid is required, because sign-in exceeds the free plan's
+10 ms CPU allowance and returns error 1102.
 
 ## 5. What the first development deployment requires
 

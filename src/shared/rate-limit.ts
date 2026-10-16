@@ -50,7 +50,43 @@ export const RATE_LIMIT_DEFAULTS = {
   /** Connection attempts, per account, successful or not. */
   connect: { limit: 30, windowSeconds: 3600 },
   /** MCP requests, per account and client. */
-  mcp: { limit: 300, windowSeconds: 60 }
+  mcp: { limit: 300, windowSeconds: 60 },
+  /**
+   * MCP requests per account, across **every** client it has authorized.
+   *
+   * The per-client bucket above bounds one client; this one bounds the total load
+   * an account can place on a connected Bludit site, however many clients it
+   * authorized. Without it, twenty authorized clients would each get a fresh
+   * budget against the same customer CMS.
+   */
+  mcp_account: { limit: 600, windowSeconds: 60 },
+  /**
+   * Account creation, per address.
+   *
+   * The most expensive unauthenticated endpoint on the service: each signup runs
+   * PBKDF2-SHA256 and writes a row. Without a limit, account creation is a CPU and
+   * storage abuse vector that needs no credential at all.
+   */
+  signup: { limit: 5, windowSeconds: 3600 },
+  /**
+   * Personal access token creation, per account.
+   *
+   * Each one mints a long-lived credential and writes a row. Thirty an hour is far
+   * more than connecting clients requires, and far less than a script would want.
+   */
+  pat_create: { limit: 30, windowSeconds: 3600 },
+  /**
+   * Consent decisions, per account. Each one writes a grant and an authorization
+   * code. The `/authorize` bucket covers the request; this covers the acceptance.
+   */
+  consent: { limit: 120, windowSeconds: 3600 },
+  /**
+   * Site capability re-checks, per account.
+   *
+   * Each check makes four or five outbound requests to the customer's own site, so
+   * an unbounded check endpoint is an outbound amplifier pointed at a customer.
+   */
+  site_check: { limit: 60, windowSeconds: 3600 }
 } as const satisfies Record<string, RateLimitSpec>;
 
 export type RateLimitName = keyof typeof RATE_LIMIT_DEFAULTS;
@@ -67,7 +103,26 @@ export interface RateLimitEnv {
   RL_PAIRING?: string;
   RL_CONNECT?: string;
   RL_MCP?: string;
+  RL_MCP_ACCOUNT?: string;
+  RL_SIGNUP?: string;
+  RL_PAT_CREATE?: string;
+  RL_CONSENT?: string;
+  RL_SITE_CHECK?: string;
 }
+
+/**
+ * Endpoints that are deliberately **not** rate limited, recorded here so their
+ * absence is a decision rather than an oversight.
+ *
+ * | Endpoint | Why not |
+ * |---|---|
+ * | `POST /clients/:id/revoke` | A safety action. A user locked out of revoking a leaked client is a worse outcome than the abuse a limit would prevent. |
+ * | `POST /tokens/:id/revoke` | Same, and more so: this is how a leaked token is stopped. |
+ * | `GET /signout` | Ends a session; limiting it helps nobody. |
+ * | `GET /healthz` | A liveness probe. A limit would make monitoring report an outage. |
+ * | `GET /.well-known/*` | Public, static, cheap metadata that clients must reach before they have any credential. |
+ * | `GET /`, `/signin`, `/signup`, `/sites`, `/clients`, `/tokens` | GETs that render a form or a list. The mutating verbs are all bounded. |
+ */
 
 export function rateLimitEnabled(env: RateLimitEnv): boolean {
   return env.RATE_LIMIT_ENABLED !== 'false';

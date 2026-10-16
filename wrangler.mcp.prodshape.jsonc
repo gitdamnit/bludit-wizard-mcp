@@ -8,7 +8,8 @@
   "vars": {
     "AUTH_ISSUER": "http://127.0.0.1:8787",
     "MCP_RESOURCE": "http://127.0.0.1:8788/mcp",
-    "ALLOW_INSECURE_SITE_URLS": "false",
+        "ALLOW_INSECURE_SITE_URLS": "false",
+    "RATE_LIMIT_ENABLED": "false",
     "SITE_CREDENTIAL_KEY": "XlyeP38PtmqkrXQqxoIEKKl014GoRzewkOw1FGeZF+w="
   },
   "_comment": "Test-only config that mirrors the production compatibility flags. Never deploy this file.",

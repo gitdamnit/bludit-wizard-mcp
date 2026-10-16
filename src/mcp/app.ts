@@ -122,6 +122,17 @@ async function handleMcpRequest(
   );
   if (limited) return limited;
 
+  // Aggregate across every client the account has authorized, so many clients
+  // cannot together exceed what one account should place on a customer's site.
+  const accountLimited = await enforceRateLimit(
+    env.DB,
+    env,
+    'mcp_account',
+    [ctx.props.userId],
+    { format: 'json', message: 'Too many requests for this account. Please slow down.' }
+  );
+  if (accountLimited) return accountLimited;
+
   // Baseline: every operation needs the advertised read scopes.
   if (!hasScopes(auth.scope, REQUIRED_SCOPES)) {
     return insufficientScope(auth, [...REQUIRED_SCOPES], 'This operation requires the baseline read scopes.');

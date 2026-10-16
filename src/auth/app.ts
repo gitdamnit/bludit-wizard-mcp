@@ -104,6 +104,16 @@ export function createAuthApp(env: AuthEnv): AuthApp {
     if (!(await signupOpen(c.env))) {
       return htmlResponse(shell('Sign up', '<p class="error">Account creation is disabled.</p>'), 403);
     }
+
+    // The most expensive unauthenticated endpoint on the service: PBKDF2 plus a
+    // row. Bounded before the body is read.
+    const limited = await enforceRateLimit(c.env.DB, c.env, 'signup', [clientIp(c.req.raw)], {
+      format: 'json',
+      message: 'Too many accounts have been created from this address. Please try again later.',
+      secret: c.env.SESSION_SECRET
+    });
+    if (limited) return limited;
+
     const form = await readForm(c.req.raw);
     try {
       const user = await createUser(c.env, {
@@ -248,6 +258,15 @@ export function createAuthApp(env: AuthEnv): AuthApp {
   app.post('/authorize/decision', async (c) => {
     const session = c.get('session');
     if (!session) return c.redirect('/signin', 302);
+
+    // Each acceptance writes a grant and an authorization code. Bounded per
+    // account, before the body is read.
+    const limited = await enforceRateLimit(c.env.DB, c.env, 'consent', [session.user.id], {
+      format: 'json',
+      message: 'Too many authorization decisions. Please wait and try again.',
+      secret: c.env.SESSION_SECRET
+    });
+    if (limited) return limited;
 
     // The body can only be read once, so read it once and pull everything out.
     const formData = await c.req.formData();
