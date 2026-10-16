@@ -1,4 +1,20 @@
 #!/usr/bin/env node
+/**
+ * Legacy single-site stdio MCP server.
+ *
+ * PROVENANCE
+ *   This file is the upstream `bludit/bludit-mcp` server, retained so existing
+ *   stdio users (Claude Desktop, Gemini CLI, and similar) keep working. It is
+ *   Copyright (c) 2026 Diego Najar and used under the MIT License; see LICENSE
+ *   and NOTICE. Only this header was added.
+ *
+ *   It is superseded by the hosted server in `src/mcp/` and `src/auth/`, which
+ *   adds OAuth 2.1, multiple sites per account, the proposal/approval workflow,
+ *   capability detection and the SSRF policy. See docs/UPSTREAM_COMPARISON.md.
+ *
+ *   Kept deliberately unchanged: this server reads one site from environment
+ *   variables and serves one user. Do not add hosted-service concerns here.
+ */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
