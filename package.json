@@ -1,43 +1,64 @@
 {
-  "name": "bludit-mcp",
+  "name": "bludit-wizard-mcp",
   "version": "0.1.0",
-  "description": "MCP server for Bludit CMS. Manage pages from Claude Desktop.",
+  "private": true,
   "type": "module",
-  "bin": {
-    "bludit-mcp": "src/index.js"
+  "description": "Universal remote MCP server for Bludit CMS: Streamable HTTP with OAuth 2.1, on Cloudflare Workers. Derived from bludit/bludit-mcp (MIT).",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
   },
-  "main": "src/index.js",
-  "files": [
-    "src",
-    "README.md",
-    "LICENSE"
+  "contributors": [
+    {
+      "name": "Diego Najar",
+      "url": "https://github.com/dignajar",
+      "comment": "Original author of bludit/bludit-mcp, the upstream project this is derived from."
+    },
+    {
+      "name": "Evan Zellner",
+      "comment": "Bludit Wizard MCP: hosted Worker, OAuth 2.1 authorization server, tool expansion, tests and documentation."
+    }
   ],
   "scripts": {
-    "start": "node src/index.js"
-  },
-  "engines": {
-    "node": ">=18"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
+    "test:compat": "vitest run test/compat",
+    "test:e2e": "vitest run test/integration test/compat",
+    "dev:auth": "wrangler dev --config wrangler.auth.jsonc --persist-to .wrangler/state",
+    "dev:mcp": "wrangler dev --config wrangler.mcp.jsonc --persist-to .wrangler/state",
+    "build:auth": "wrangler deploy --config wrangler.auth.jsonc --dry-run --outdir .wrangler/build/auth",
+    "build:mcp": "wrangler deploy --config wrangler.mcp.jsonc --dry-run --outdir .wrangler/build/mcp",
+    "db:migrate:local": "wrangler d1 migrations apply bludit-wizard-mcp --config wrangler.auth.jsonc --local",
+    "db:migrate:remote": "wrangler d1 migrations apply bludit-wizard-mcp --config wrangler.auth.jsonc --remote",
+    "cf-typegen": "wrangler types --config wrangler.auth.jsonc worker-configuration.d.ts",
+    "verify": "npm run typecheck && npm run test",
+    "start:stdio": "node src/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.23.0"
+    "@cfworker/json-schema": "4.1.1",
+    "@cloudflare/workers-oauth-provider": "1.2.3",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "hono": "4.13.13",
+    "zod": "4.6.7"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/bludit/bludit-mcp.git"
-  },
-  "homepage": "https://github.com/bludit/bludit-mcp#readme",
-  "bugs": {
-    "url": "https://github.com/bludit/bludit-mcp/issues"
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261015.1",
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12",
+    "wrangler": "4.151.0"
   },
   "keywords": [
     "mcp",
     "model-context-protocol",
     "bludit",
     "cms",
-    "claude",
-    "claude-desktop"
-  ],
-  "author": "Diego Najar",
-  "license": "MIT"
+    "cloudflare-workers",
+    "oauth",
+    "remote-mcp",
+    "streamable-http"
+  ]
 }

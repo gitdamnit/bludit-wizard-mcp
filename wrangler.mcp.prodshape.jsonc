@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bludit-wizard-mcp",
+  "main": "src/mcp/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "observability": { "enabled": false },
+  "vars": {
+    "AUTH_ISSUER": "http://127.0.0.1:8787",
+    "MCP_RESOURCE": "http://127.0.0.1:8788/mcp",
+    "ALLOW_INSECURE_SITE_URLS": "false",
+    "SITE_CREDENTIAL_KEY": "XlyeP38PtmqkrXQqxoIEKKl014GoRzewkOw1FGeZF+w="
+  },
+  "_comment": "Test-only config that mirrors the production compatibility flags. Never deploy this file.",
+  "services": [{ "binding": "AUTH_SERVER", "service": "bludit-wizard-auth" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bludit-wizard-mcp-test-prodshape",
+      "database_id": "test-d1-database-prodshape"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+Bludit Wizard MCP — third-party notices
+=======================================
+
+Upstream project
+----------------
+
+  Project:   bludit-mcp
+  Owner:     Bludit (Diego Najar)
+  URL:       https://github.com/bludit/bludit-mcp
+  Licence:   MIT
+  Copyright: Copyright (c) 2026 Diego Najar
+  Pinned at: commit 73b5ddcb92015d1359370ba2613090eef6af910c
+
+This repository began as a clone of that repository and retains its full git
+history, so every upstream commit remains attributable. The MIT licence and the
+original copyright notice are preserved in LICENSE.
+
+What is inherited from upstream
+-------------------------------
+
+  - The repository history and the MIT licence.
+  - `src/index.js`, the single-site stdio MCP server. It is retained verbatim
+    apart from a provenance header, so existing stdio users keep working.
+
+What is new in this repository
+------------------------------
+
+  - The Cloudflare Workers deployment: an authorization server Worker, an MCP
+    resource server Worker, D1 schema, and OAuth 2.1 wiring.
+  - The expanded tool catalogue, the proposal/approval workflow, capability
+    detection, content intelligence, and the SSRF policy.
+  - The entire test suite, the documentation, and the deployment configuration.
+
+None of the upstream code is presented as independently authored. See
+`docs/UPSTREAM_COMPARISON.md` for a file-by-file account.
+
+Third-party runtime dependencies
+--------------------------------
+
+  @modelcontextprotocol/sdk          MIT     https://github.com/modelcontextprotocol/typescript-sdk
+  @cloudflare/workers-oauth-provider MIT     https://github.com/cloudflare/workers-oauth-provider
+  hono                               MIT     https://github.com/honojs/hono
+  zod                                MIT     https://github.com/colinhacks/zod
+  @cfworker/json-schema              MIT     https://github.com/cfworker/cfworker
+
+Bludit itself is a separate project (https://www.bludit.com) and is not
+redistributed here. This server talks to a Bludit site over its HTTP API; it does
+not bundle, embed, or modify Bludit.

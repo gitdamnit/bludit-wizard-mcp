@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bludit-wizard-auth",
+  "main": "src/auth/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": [
+    "global_fetch_strictly_public"
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "AUTH_ISSUER": "http://localhost:8787",
+    "MCP_RESOURCE": "http://localhost:8788/mcp",
+    "ALLOW_INSECURE_SITE_URLS": "false"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "REPLACE_WITH_OAUTH_KV_NAMESPACE_ID"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bludit-wizard-mcp",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

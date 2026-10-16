@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bludit-wizard-mcp",
+  "main": "src/mcp/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": false },
+  "vars": {
+    "AUTH_ISSUER": "http://127.0.0.1:8787",
+    "MCP_RESOURCE": "http://127.0.0.1:8788/mcp",
+    "ALLOW_INSECURE_SITE_URLS": "true",
+    "PROPOSAL_TTL_SECONDS": "900",
+    "SITE_CREDENTIAL_KEY": "XlyeP38PtmqkrXQqxoIEKKl014GoRzewkOw1FGeZF+w="
+  },
+  "_comment": "Test-only config. Deliberately omits the global_fetch_strictly_public flag so the Worker can reach the loopback mock Bludit server. Never deploy this file.",
+  "services": [{ "binding": "AUTH_SERVER", "service": "bludit-wizard-auth" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bludit-wizard-mcp-test",
+      "database_id": "test-d1-database",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

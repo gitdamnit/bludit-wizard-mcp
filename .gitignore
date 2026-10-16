@@ -1,5 +1,16 @@
 node_modules/
+.wrangler/
+dist/
+coverage/
+reports/
+test-results/
+playwright-report/
 *.log
 .DS_Store
+
+# Never commit secrets or local credentials
+.dev.vars
 .env
-.env.local
+.env.*
+!.env.example
+*.pem

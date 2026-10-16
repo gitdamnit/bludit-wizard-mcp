@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "test-schema",
+  "main": "test/harness/schema-worker.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": false },
+  "_comment": "Test-only. Runs the D1 schema into the same local database the auth and mcp test Workers bind.",
+  "rules": [{ "type": "Text", "globs": ["**/*.sql"], "fallthrough": true }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bludit-wizard-mcp-test",
+      "database_id": "test-d1-database"
+    }
+  ]
+}

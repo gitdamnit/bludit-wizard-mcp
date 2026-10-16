@@ -1,0 +1,16 @@
+# Copy to .dev.vars for local development. .dev.vars is git-ignored.
+#
+# 32 random bytes, base64. Encrypts Bludit site credentials at rest in D1.
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+SITE_CREDENTIAL_KEY=""
+
+# 32 random bytes, base64. HMAC key for session cookies and pairing-challenge hashes.
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+SESSION_SECRET=""
+
+# HMAC key for the "remember this consent" cookie. At least 32 characters.
+CONSENT_SECRET=""
+
+# Bootstrap administrator. Used by `npm run admin:create` to seed the first account.
+BOOTSTRAP_ADMIN_EMAIL=""
+BOOTSTRAP_ADMIN_PASSWORD=""

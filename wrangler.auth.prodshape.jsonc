@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bludit-wizard-auth",
+  "main": "src/auth/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "observability": { "enabled": false },
+  "vars": {
+    "AUTH_ISSUER": "http://127.0.0.1:8787",
+    "MCP_RESOURCE": "http://127.0.0.1:8788/mcp",
+    "ALLOW_INSECURE_SITE_URLS": "false",
+    "ALLOW_SIGNUP": "true",
+    "PBKDF2_ITERATIONS": "1000",
+    "SITE_CREDENTIAL_KEY": "XlyeP38PtmqkrXQqxoIEKKl014GoRzewkOw1FGeZF+w=",
+    "SESSION_SECRET": "xFKQYD1Q6T1sfB9Uu2VxYOCyl3+05Un+QnH4EnQ6/R8=",
+    "CONSENT_SECRET": "mfBcuEtFLcksbYm6tFjzy58WqE3+Mh7fGPiX346Rr2w="
+  },
+  "_comment": "Test-only config that mirrors the production compatibility flags, including global_fetch_strictly_public. The issuer is loopback because the OAuth library permits http only on a loopback host; everything else matches production. Never deploy this file.",
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "test-oauth-kv-prodshape" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bludit-wizard-mcp-test-prodshape",
+      "database_id": "test-d1-database-prodshape"
+    }
+  ]
+}

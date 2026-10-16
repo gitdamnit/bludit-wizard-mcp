@@ -1,6 +1,11 @@
 MIT License
 
-Copyright (c) 2026 Diego Najar
+Copyright (c) 2026 Diego Najar — original work, https://github.com/bludit/bludit-mcp
+Copyright (c) 2026 Evan Zellner — Bludit Wizard MCP modifications and additions
+
+This project is a derivative of `bludit/bludit-mcp`, which is distributed under
+the MIT License. The original copyright notice above is retained in full, as the
+license requires.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
