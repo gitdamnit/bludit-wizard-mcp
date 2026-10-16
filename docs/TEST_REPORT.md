@@ -213,10 +213,10 @@ Produced by `npx vitest run --coverage test/unit test/integration test/compat`
 (V8, instrumenting `src/**`).
 
 ```
-Statements  40.11% ( 680/1695 )
-Branches    34.09% ( 464/1361 )
-Functions   35.42% ( 130/367  )
-Lines       39.41% ( 596/1512 )
+Statements  38.34% ( 691/1802 )
+Branches    32.52% ( 469/1442 )
+Functions   34.17% ( 135/395  )
+Lines       37.85% ( 606/1601 )
 ```
 
 **Read this before quoting the headline number.** That aggregate is **not** a
@@ -242,6 +242,7 @@ These are unit-tested directly, and their numbers are meaningful:
 | `shared/rate-limit.ts` | 71.42% | 59.25% | 85.71% | 69.56% |
 | `bludit/capabilities.ts` | 96.96% | 97.29% | 100% | 96.87% |
 | `bludit/client.ts` | 78.94% | 67.54% | 78.57% | 80.95% |
+| `shared/scopes.ts` | 100% | 100% | 100% | 100% |
 | `proposals/diff.ts` | 91.35% | 91.42% | 100% | 90.00% |
 | `sites/registry-helpers.ts` | 100% | 82.35% | 100% | 100% |
 | `mcp/tools/write-helpers.ts` | 77.50% | 80.43% | 100% | 96.55% |
@@ -255,12 +256,13 @@ binding-dependent part runs in workerd:
 | `proposals/store.ts` | 45.45% | `assertProposalApplicable` is unit-tested; the D1 functions run in workerd |
 | `sites/pairing.ts` | 20.68% | Proof comparisons are unit-tested; the D1 challenge functions run in workerd |
 | `mcp/tools/intelligence.ts` | 20.56% | `summarizeContent` is unit-tested; the tool registrations run in workerd |
+| `shared/pats.ts` | 25.00% | Token shape, digests, scope parsing and the summary projection are unit-tested; minting and verification need D1 and run in workerd |
 | `shared/log.ts` | 6.25% | Called from workerd; its console output never reaches the Node process |
 | `bludit/client.ts` | 78.94% | The fetch paths are covered in workerd by the mock and live suites |
 
 ### Modules reported at 0% that the integration suite covers
 
-`auth/*` (seven files), `mcp/app.ts`, `mcp/index.ts`, `mcp/server.ts`,
+`auth/*` (eight files, including the new token UI), `mcp/app.ts`, `mcp/index.ts`, `mcp/server.ts`,
 `mcp/tools/context.ts`, `mcp/tools/pages.ts`, `mcp/tools/result.ts`,
 `mcp/tools/sites.ts`, `mcp/tools/taxonomy.ts`, `mcp/tools/write.ts`,
 `sites/connect.ts`, `sites/credentials.ts`, `sites/registry.ts`.
