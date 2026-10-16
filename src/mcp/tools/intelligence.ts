@@ -311,9 +311,3 @@ export function summarizeContent(page: BluditPage): ContentSummary {
     warnings
   };
 }
-
-export function assertNonEmptyQuery(query: string): string {
-  const trimmed = query.trim();
-  if (trimmed === '') throw new ToolError('invalid_input', 'A search query is required.');
-  return trimmed;
-}

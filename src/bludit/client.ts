@@ -17,7 +17,6 @@
  */
 
 import { ToolError } from '../shared/errors.js';
-import { logger } from '../shared/log.js';
 import { safeFetch, SsrfBlockedError, UpstreamTransportError, type UrlPolicy } from '../shared/ssrf.js';
 import { stableHashHex } from '../shared/crypto.js';
 import type {
@@ -26,7 +25,6 @@ import type {
   BluditSettings,
   BluditTaxonomyTerm,
   BluditWriteFields,
-  WizardPageList,
   WizardSiteInfo
 } from './types.js';
 
@@ -234,26 +232,12 @@ export class BluditClient {
     return envelope.data ?? [];
   }
 
-  async getTag(key: string): Promise<BluditTaxonomyTerm> {
-    const envelope = await this.call<BluditTaxonomyTerm>(this.url(`/api/tags/${encodeURIComponent(key)}`), {
-      method: 'GET'
-    });
-    if (!envelope.data) throw new ToolError('not_found', 'The tag was not found.', { tagKey: key });
-    return envelope.data;
-  }
 
   async listCategories(): Promise<BluditTaxonomyTerm[]> {
     const envelope = await this.call<BluditTaxonomyTerm[]>(this.url('/api/categories'), { method: 'GET', ...API_PLUGIN_MISSING });
     return envelope.data ?? [];
   }
 
-  async getCategory(key: string): Promise<BluditTaxonomyTerm> {
-    const envelope = await this.call<BluditTaxonomyTerm>(this.url(`/api/categories/${encodeURIComponent(key)}`), {
-      method: 'GET'
-    });
-    if (!envelope.data) throw new ToolError('not_found', 'The category was not found.', { categoryKey: key });
-    return envelope.data;
-  }
 
   // -------------------------------------------------------------------------
   // Writes
@@ -337,9 +321,6 @@ export class BluditClient {
     return this.wizardGet<WizardSiteInfo>('/site');
   }
 
-  async wizardListPages(): Promise<WizardPageList> {
-    return this.wizardGet<WizardPageList>('/pages');
-  }
 
   /**
    * Ask the Wizard extension to prove it received a pairing challenge.
@@ -395,11 +376,4 @@ export async function pageRevision(page: BluditPage): Promise<string> {
     category: page.category ?? '',
     tags: page.tags ?? []
   });
-}
-
-/** Log a client-side diagnostic without any credential material. */
-export function describeClientFailure(error: unknown): string {
-  if (error instanceof ToolError) return `${error.code}: ${error.message}`;
-  logger.debug('bludit.client.unexpected', { error: String(error) });
-  return 'unknown failure';
 }

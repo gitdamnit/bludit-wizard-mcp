@@ -18,8 +18,3 @@ export function safeNext(value: string | undefined | null): string | null {
   if (value.includes('\\') || value.includes('://')) return null;
   return value;
 }
-
-/** True when `value` is a safe same-origin path. */
-export function isSafeNext(value: string | undefined | null): boolean {
-  return safeNext(value) !== null;
-}

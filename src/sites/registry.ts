@@ -1,23 +1,13 @@
-/**
- * Site registry: the mapping from a signed-in account to the Bludit websites it
- * has connected.
- *
- * Authorization rules enforced here, not in prompt text:
- *  - every read and write is scoped by `user_id`;
- *  - a site id belonging to another account resolves to "not found", never to
- *    "forbidden", so the registry cannot be used to enumerate other users' sites;
- *  - secret material is stripped before a row is handed to a tool.
- */
-
-import type { BluditEdition, SiteCapabilities } from '../bludit/capability-types.js';
-import { BluditClient } from '../bludit/client.js';
 import { ToolError } from '../shared/errors.js';
 import { newId } from '../shared/crypto.js';
-import type { SharedSecrets } from '../shared/env.js';
-import { toBluditCredentials, type EncryptedCredentials } from './credentials.js';
-import { toPublicSite, type PublicSite, type SiteRow } from './registry-helpers.js';
+import type { EncryptedCredentials } from './credentials.js';
+import type { SiteRow } from './registry-helpers.js';
+import type { BluditEdition, SiteCapabilities } from '../bludit/capability-types.js';
 
-export { toPublicSite, parseCapabilities, parseEditionLike, type PublicSite, type SiteRow } from './registry-helpers.js';
+// Re-exported so callers have one import site for the registry's shapes.
+export { parseCapabilities, parseEditionLike, toPublicSite } from './registry-helpers.js';
+export type { PublicSite, SiteRow } from './registry-helpers.js';
+
 
 export async function listSiteRows(db: D1Database, userId: string): Promise<SiteRow[]> {
   const result = await db
@@ -83,12 +73,6 @@ export async function resolveSiteRow(
   });
 }
 
-export function rowToClient(row: SiteRow, env: SharedSecrets, policy: { allowInsecure: boolean }): Promise<BluditClient> {
-  return toBluditCredentials(env, row.id, row.base_url, row).then(
-    (credentials) =>
-      new BluditClient(credentials, { policy })
-  );
-}
 
 export interface InsertSiteInput {
   userId: string;
@@ -172,10 +156,4 @@ export async function markSiteStatus(
 export async function deleteSite(db: D1Database, userId: string, siteId: string): Promise<boolean> {
   const result = await db.prepare('DELETE FROM sites WHERE id = ? AND user_id = ?').bind(siteId, userId).run();
   return (result.meta?.changes ?? 0) > 0;
-}
-
-export interface SiteCredentialsInput {
-  apiToken: string;
-  authToken: string;
-  wizardApiKey: string;
 }

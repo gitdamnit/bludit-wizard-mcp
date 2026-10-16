@@ -10,9 +10,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { detectCapabilities } from '../../bludit/capabilities.js';
 import { parseCapabilities, updateSiteCapabilities } from '../../sites/registry.js';
-import { ToolError } from '../../shared/errors.js';
-import { hasScopes, scopesForTool } from '../../shared/scopes.js';
-import { requireToolScope, resolveSite, siteFor, withAudit, type ResolvedSite, type ToolContext } from './context.js';
+import { requireToolScope, resolveSite, siteFor, withAudit, type ToolContext } from './context.js';
 import { toResult } from './result.js';
 
 export function registerSiteTools(server: McpServer, ctx: ToolContext): void {
@@ -143,10 +141,4 @@ function editionOf(value: string): 'community' | 'pro' | 'unknown' {
   return value === 'community' || value === 'pro' ? value : 'unknown';
 }
 
-/** Tools whose scopes are satisfied by a token; used to enable/disable registration. */
-export function siteToolsAvailable(scopes: readonly string[]): boolean {
-  return hasScopes(scopes, scopesForTool('list_sites'));
-}
 
-export type { ResolvedSite };
-export { ToolError };

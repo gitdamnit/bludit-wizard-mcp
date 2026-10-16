@@ -294,12 +294,27 @@ describe('deterministic intelligence tools', () => {
   it('searches page bodies only when asked, and notes the cost', async () => {
     const result = await callTool(harness.mcp, token, 'search_pages', {
       query: 'walking pace',
-      include_content: true
+      include_content: true,
+      scan_limit: 10
     });
     const data = result.data as { count: number; matches: Array<{ matchedIn: string[]; excerpt?: string }> };
     expect(data.count).toBe(1);
     expect(data.matches[0]?.matchedIn).toContain('content');
     expect(data.matches[0]?.excerpt).toContain('walking pace');
+  });
+
+  it('refuses a content scan wide enough to exhaust the subrequest budget', async () => {
+    // Each fetched page is a separate subrequest, and a Workers request may make
+    // only 50 on the free plan. The tool refuses rather than failing mid-scan.
+    const result = await callTool(harness.mcp, token, 'search_pages', {
+      query: 'walking pace',
+      include_content: true,
+      scan_limit: 200
+    });
+    expect(result.isError).toBe(true);
+    const error = (result.data as { error: { code: string; message: string } }).error;
+    expect(error.code).toBe('invalid_input');
+    expect(error.message).toContain('separate upstream request');
   });
 
   it('summarizes page content deterministically', async () => {

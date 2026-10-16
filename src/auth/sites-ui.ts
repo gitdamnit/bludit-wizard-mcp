@@ -7,7 +7,6 @@
  * token.
  */
 
-import type { Context } from 'hono';
 import { escapeHtml, htmlResponse, renderPage } from '../shared/html.js';
 import { ToolError, isToolError } from '../shared/errors.js';
 import { urlPolicyFor } from '../shared/policy.js';

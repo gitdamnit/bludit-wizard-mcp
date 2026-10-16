@@ -21,7 +21,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { pageRevision } from '../../bludit/client.js';
-import { isPageType, type BluditWriteFields } from '../../bludit/types.js';
+import type { BluditWriteFields } from '../../bludit/types.js';
 import { ToolError } from '../../shared/errors.js';
 import { diffFields, diffText } from '../../proposals/diff.js';
 import {

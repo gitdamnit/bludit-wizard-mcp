@@ -183,6 +183,12 @@ export async function markProposalApplied(
   return (result.meta?.changes ?? 0) > 0;
 }
 
+/** Mark a proposal rejected.
+ *
+ * No tool or page calls this yet: a user who does not want a change simply does
+ * not apply it, and the proposal expires on its own. It exists because the schema
+ * models the state and `assertProposalApplicable` must handle it defensively.
+ */
 export async function rejectProposal(db: D1Database, userId: string, siteId: string, proposalId: string): Promise<boolean> {
   const result = await db
     .prepare(

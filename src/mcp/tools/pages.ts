@@ -13,7 +13,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { pageRevision } from '../../bludit/client.js';
 import type { BluditPage } from '../../bludit/types.js';
 import { requireToolScope, siteFor, withAudit, type ToolContext } from './context.js';
-import { toResult, truncate } from './result.js';
+import { toResult } from './result.js';
 
 export interface PageSummary {
   key: string;
@@ -262,9 +262,4 @@ export function formatBluditDate(date: Date): string {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(
     date.getUTCMinutes()
   )}:${pad(date.getUTCSeconds())}`;
-}
-
-export function summarizeForContext(page: BluditPage, maxChars = 1800): string {
-  const raw = page.contentRaw ?? page.content ?? '';
-  return truncate(raw.replace(/\s+/g, ' '), maxChars);
 }

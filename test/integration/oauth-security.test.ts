@@ -470,7 +470,6 @@ describe('refresh and expiry', () => {
 
 describe('client identification via metadata document (CIMD)', () => {
   let docServer: Server;
-  let metadataUrl: string;
 
   beforeAll(async () => {
     docServer = createServer((req, res) => {
@@ -493,7 +492,6 @@ describe('client identification via metadata document (CIMD)', () => {
       res.end('not found');
     });
     await new Promise<void>((resolve) => docServer.listen(0, '127.0.0.1', resolve));
-    metadataUrl = `http://127.0.0.1:${(docServer.address() as AddressInfo).port}/client-metadata.json`;
   });
 
   afterAll(async () => {

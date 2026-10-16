@@ -8,6 +8,7 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
+    "noUnusedLocals": true,
     "exactOptionalPropertyTypes": false,
     "verbatimModuleSyntax": false,
     "esModuleInterop": true,
