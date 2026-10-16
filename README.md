@@ -296,6 +296,7 @@ Report a vulnerability privately — see [docs/SECURITY.md](docs/SECURITY.md).
 | [TEST_REPORT.md](docs/TEST_REPORT.md) | Measured results, environment, limitations |
 | [OPENAI_PUBLICATION_CHECKLIST.md](docs/OPENAI_PUBLICATION_CHECKLIST.md) | Publication readiness, test cases, remaining steps |
 | [DEPLOYMENT_READINESS.md](docs/DEPLOYMENT_READINESS.md) | Exact Cloudflare resources, cost, remaining risks, and the safe deploy sequence |
+| [HOSTINGER_FEASIBILITY.md](docs/HOSTINGER_FEASIBILITY.md) | Whether the $5/month Cloudflare subscription can be avoided by moving to existing Hostinger hosting |
 | [CLIENT_COMPATIBILITY_MATRIX.md](docs/CLIENT_COMPATIBILITY_MATRIX.md) | Twelve client targets: transport, auth, configuration, and what is verified |
 | [CLIENT_SETUP_GUIDES.md](docs/CLIENT_SETUP_GUIDES.md) | One setup guide per client, with copyable templates |
 | [CLIENT_GAP_ANALYSIS.md](docs/CLIENT_GAP_ANALYSIS.md) | What already worked, what needed building, and what was deliberately not built |
