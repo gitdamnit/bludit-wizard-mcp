@@ -10,7 +10,11 @@
  * that is not a SELECT, and it is never referenced by a deployable config.
  */
 
-import schema from '../../migrations/0001_init.sql';
+import init from '../../migrations/0001_init.sql';
+import rateLimits from '../../migrations/0002_rate_limits.sql';
+
+/** Applied in filename order, the same order `wrangler d1 migrations apply` uses. */
+const SCHEMA = `${init}\n${rateLimits}`;
 
 export function splitStatements(sql: string): string[] {
   return sql
@@ -29,7 +33,7 @@ export default {
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
     if (pathname === '/apply') {
-      const statements = splitStatements(schema);
+      const statements = splitStatements(SCHEMA);
       for (const statement of statements) {
         await env.DB.prepare(statement).run();
       }

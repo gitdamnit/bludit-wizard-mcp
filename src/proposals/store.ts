@@ -16,7 +16,7 @@
 
 import { ToolError } from '../shared/errors.js';
 import { newId, stableHashHex } from '../shared/crypto.js';
-import { DEFAULT_PROPOSAL_TTL_SECONDS, intVar, type SharedSecrets } from '../shared/env.js';
+import { DEFAULT_PROPOSAL_TTL_SECONDS, intVar, type SharedConfig } from '../shared/env.js';
 
 export type ProposalOperation = 'create' | 'edit';
 export type ProposalStatus = 'proposed' | 'applied' | 'expired' | 'rejected';
@@ -37,7 +37,7 @@ export interface ProposalRow {
   applied_by_client_id: string;
 }
 
-export function proposalTtlSeconds(env: SharedSecrets): number {
+export function proposalTtlSeconds(env: SharedConfig): number {
   return intVar(env.PROPOSAL_TTL_SECONDS, DEFAULT_PROPOSAL_TTL_SECONDS);
 }
 

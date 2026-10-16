@@ -20,7 +20,7 @@ import { ToolError } from '../shared/errors.js';
 import { logger } from '../shared/log.js';
 import { newId } from '../shared/crypto.js';
 import { checkSiteUrl, normalizeBaseUrl, safeFetch, SsrfBlockedError, type UrlPolicy } from '../shared/ssrf.js';
-import type { SharedSecrets } from '../shared/env.js';
+import type { SharedConfig } from '../shared/env.js';
 import { encryptCredentials } from './credentials.js';
 import {
   consumeChallenge,
@@ -60,7 +60,7 @@ export type ProofMethod = 'wizard_hmac' | 'well-known-file';
 export interface ConnectDeps {
   db: D1Database;
   /** Needs the credential key and the session secret that keys challenge hashes. */
-  env: SharedSecrets & { SESSION_SECRET: string };
+  env: SharedConfig & { SESSION_SECRET: string };
   policy: UrlPolicy;
   /** Injectable transport, so the pairing proof can be tested deterministically. */
   fetchImpl?: typeof safeFetch;

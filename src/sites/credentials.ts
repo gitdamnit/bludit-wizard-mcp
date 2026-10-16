@@ -10,7 +10,7 @@
  */
 
 import type { BluditCredentials } from '../bludit/client.js';
-import { intVar, type SharedSecrets } from '../shared/env.js';
+import { intVar, type SharedConfig } from '../shared/env.js';
 import { decryptSecret, encryptSecret } from '../shared/crypto.js';
 
 /** Column shape carrying encrypted credentials in `sites`. */
@@ -28,16 +28,16 @@ export interface PlainCredentials {
   wizardApiBase: string;
 }
 
-export function credentialKey(env: SharedSecrets): string {
+export function credentialKey(env: SharedConfig): string {
   return env.SITE_CREDENTIAL_KEY;
 }
 
-export function credentialKeyVersion(env: SharedSecrets): number {
+export function credentialKeyVersion(env: SharedConfig): number {
   return intVar(env.CREDENTIAL_KEY_VERSION, 1);
 }
 
 export async function encryptCredentials(
-  env: SharedSecrets,
+  env: SharedConfig,
   siteId: string,
   credentials: PlainCredentials
 ): Promise<EncryptedCredentials> {
@@ -56,7 +56,7 @@ export async function encryptCredentials(
 }
 
 export async function decryptCredentials(
-  env: SharedSecrets,
+  env: SharedConfig,
   siteId: string,
   row: EncryptedCredentials
 ): Promise<PlainCredentials> {
@@ -70,7 +70,7 @@ export async function decryptCredentials(
 }
 
 export async function toBluditCredentials(
-  env: SharedSecrets,
+  env: SharedConfig,
   siteId: string,
   baseUrl: string,
   row: EncryptedCredentials

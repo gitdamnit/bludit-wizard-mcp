@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-10-16T02:47:22.277Z",
+  "note": "Live results. See docs/BLUDIT_COMPATIBILITY_MATRIX.md.",
+  "results": [
+    {
+      "edition": "community",
+      "baseUrl": "http://127.0.0.1:8801",
+      "bluditVersion": "3.22.0",
+      "readOk": true,
+      "authenticatedOk": true,
+      "wizardExtension": false,
+      "declaredEditionRecorded": "community",
+      "detectedEdition": "unknown",
+      "operations": {
+        "list_pages": "success",
+        "get_page": "success",
+        "get_website_settings": "success",
+        "list_tags": "success",
+        "list_categories": "success",
+        "search_pages": "success",
+        "get_content_summary": "success",
+        "verify_page_update": "success",
+        "create_page": "success",
+        "edit_page": "success",
+        "propose_page_edit": "success",
+        "preview_page_changes": "success",
+        "apply_approved_edit": "success",
+        "stale_approval_refused": "error:revision_mismatch"
+      }
+    },
+    {
+      "edition": "pro",
+      "baseUrl": "http://127.0.0.1:8802",
+      "bluditVersion": "3.22.0",
+      "readOk": true,
+      "authenticatedOk": true,
+      "wizardExtension": false,
+      "declaredEditionRecorded": "pro",
+      "detectedEdition": "unknown",
+      "operations": {
+        "list_pages": "success",
+        "get_page": "success",
+        "get_website_settings": "success",
+        "list_tags": "success",
+        "list_categories": "success",
+        "search_pages": "success",
+        "get_content_summary": "success",
+        "verify_page_update": "success",
+        "create_page": "success",
+        "edit_page": "success",
+        "propose_page_edit": "success",
+        "preview_page_changes": "success",
+        "apply_approved_edit": "success",
+        "stale_approval_refused": "error:revision_mismatch"
+      }
+    }
+  ]
+}

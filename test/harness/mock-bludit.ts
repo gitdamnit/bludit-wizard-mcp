@@ -13,7 +13,14 @@
  *    HTTP status;
  *  - `type` drives the list filters, `numberOfItems: -1` returns everything,
  *    and an out-of-range page number yields an empty list;
- *  - a page whose slug changes moves, which changes its key.
+ *  - a page whose slug changes moves, which changes its key;
+ *  - `tags` comes back as a comma-joined string, not an array, and only
+ *    published/static/sticky pages are tag-indexed;
+ *  - `category` comes back as `false` unless the site defines that category.
+
+ * Behaviours 4 and 5 were added after the first live test run against real
+ * Bludit Community and Pro 3.22.0 disagreed with the mock. Both were bugs in this
+ * mock, and one of them had hidden a real crash in `search_pages`.
  *
  * It also serves the `/.well-known/` pairing file and, optionally, the Bludit
  * Wizard extension endpoints, so the site-connection flow can be tested with
@@ -98,6 +105,13 @@ export async function startMockBludit(options: MockBluditOptions = {}): Promise<
 
   const requests: RequestLogEntry[] = [];
   const pages = new Map<string, MockPage>();
+  /**
+   * The categories this site defines. Real Bludit resolves a page's stored
+   * category against its category list and returns `false` when there is no
+   * match, which is what a page created with an arbitrary category reads back as.
+   * Verified against live Bludit 3.22.0.
+   */
+  const configuredCategories = new Set<string>();
   let challenge: string | null = null;
   let forcedStatus = options.forcedStatus;
 
@@ -121,7 +135,10 @@ export async function startMockBludit(options: MockBluditOptions = {}): Promise<
     return page;
   };
 
-  for (const page of options.pages ?? []) seed(page);
+  for (const page of options.pages ?? []) {
+    const seeded = seed(page);
+    if (seeded.category !== '') configuredCategories.add(seeded.category);
+  }
 
   const json = (res: import('node:http').ServerResponse, status: number, payload: unknown): void => {
     const body = JSON.stringify(payload);
@@ -140,10 +157,13 @@ export async function startMockBludit(options: MockBluditOptions = {}): Promise<
     date: page.date,
     dateRaw: page.date,
     dateUTC: page.date,
-    tags: page.tags,
+    // Faithful to the real API: `Page::json()` calls `tags(false)`, which returns
+    // `implode(',', $tags)`. The first live test run against real Bludit proved
+    // this, and the mock previously got it wrong by returning an array.
+    tags: page.tags.join(','),
     username: page.username,
-    category: page.category,
-    uuid: page.uuid,
+    // Faithful to `Page::category()`: the name when the site defines it, else false.
+    category: page.category !== '' && configuredCategories.has(page.category) ? page.category : false,
     permalink: `http://example.invalid/${page.key}`,
     coverImage: false,
     coverImageFilename: false
@@ -288,9 +308,14 @@ export async function startMockBludit(options: MockBluditOptions = {}): Promise<
       }
 
       if (resource === 'tags' || resource === 'categories') {
-        const values = [...pages.values()].flatMap((page) =>
-          resource === 'tags' ? page.tags : [page.category]
-        );
+        // Bludit indexes tags and category membership for published, static and
+        // sticky pages only (`$GLOBALS['DB_TAGS_TYPES']` in boot/variables.php).
+        // A draft's tags are stored on the page but never indexed. Verified
+        // against live Bludit 3.22.0.
+        const TAGGABLE_TYPES = new Set(['published', 'static', 'sticky']);
+        const values = [...pages.values()]
+          .filter((page) => TAGGABLE_TYPES.has(page.type))
+          .flatMap((page) => (resource === 'tags' ? page.tags : [page.category]));
         const terms = [...new Set(values)].filter((value) => value !== '');
         if (key === undefined) {
           finish(200, {

@@ -20,7 +20,7 @@ import { urlPolicyFor } from '../../shared/policy.js';
 import { resolveSiteRow, toPublicSite, type PublicSite, type SiteRow } from '../../sites/registry.js';
 import { toBluditCredentials } from '../../sites/credentials.js';
 import { recordAudit } from '../../audit/log.js';
-import { logger } from '../../shared/log.js';
+import { errorSummary, logger } from '../../shared/log.js';
 import type { UrlPolicy } from '../../shared/ssrf.js';
 
 export interface ToolContext {
@@ -140,7 +140,9 @@ export async function withAudit<T>(
         detail: error.code
       });
     } else {
-      logger.error('tool.unexpected', { tool, message: error instanceof Error ? error.name : 'unknown' });
+      // Log the name and the message. The message is redacted by the logger, and
+      // without it an unexpected failure is untraceable in production.
+      logger.error('tool.unexpected', { tool, ...errorSummary(error) });
       await audit(ctx, { tool, outcome: 'error', detail: 'unexpected' });
     }
     throw error;

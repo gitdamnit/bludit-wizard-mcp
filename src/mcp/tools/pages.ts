@@ -10,7 +10,7 @@
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { pageRevision } from '../../bludit/client.js';
+import { pageCategory, pageRevision, pageTags } from '../../bludit/client.js';
 import type { BluditPage } from '../../bludit/types.js';
 import { requireToolScope, siteFor, withAudit, type ToolContext } from './context.js';
 import { toResult } from './result.js';
@@ -35,8 +35,8 @@ export function summarizePage(page: BluditPage): PageSummary {
     type: page.type ?? '',
     slug: page.slug ?? '',
     date: page.dateRaw ?? page.date ?? '',
-    tags: Array.isArray(page.tags) ? page.tags : [],
-    category: page.category ?? '',
+    tags: pageTags(page),
+    category: pageCategory(page),
     permalink: page.permalink ?? ''
   };
 }
@@ -166,8 +166,8 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
                 slug: page.slug ?? '',
                 date: page.dateRaw ?? page.date ?? '',
                 dateUTC: page.dateUTC ?? '',
-                tags: page.tags ?? [],
-                category: page.category ?? '',
+                tags: pageTags(page),
+                category: pageCategory(page),
                 username: page.username ?? '',
                 uuid: page.uuid ?? '',
                 permalink: page.permalink ?? '',

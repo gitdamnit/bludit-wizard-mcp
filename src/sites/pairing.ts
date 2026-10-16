@@ -18,7 +18,7 @@
 
 import { ToolError } from '../shared/errors.js';
 import { constantTimeEqual, hmacBase64Url, hmacHex, randomToken } from '../shared/crypto.js';
-import { DEFAULT_PAIRING_TTL_SECONDS, intVar, type SharedSecrets } from '../shared/env.js';
+import { DEFAULT_PAIRING_TTL_SECONDS, intVar, type SharedConfig } from '../shared/env.js';
 
 export interface PairingChallengeRow {
   id: string;
@@ -38,7 +38,7 @@ export interface CreatedChallenge {
   expiresAt: number;
 }
 
-export function pairingTtlSeconds(env: SharedSecrets): number {
+export function pairingTtlSeconds(env: SharedConfig): number {
   return intVar(env.PAIRING_TTL_SECONDS, DEFAULT_PAIRING_TTL_SECONDS);
 }
 

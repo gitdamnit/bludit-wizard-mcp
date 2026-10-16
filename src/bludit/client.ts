@@ -356,6 +356,39 @@ function redactEnvelopeMessage(message: string | undefined): string {
 }
 
 /**
+ * Bludit's tag list, normalised to an array.
+ *
+ * The HTTP API sends `tags` as a comma-joined string while the database stores an
+ * array, so anything reading tag data must go through here. Treating that string
+ * as an array is a runtime error on a live site — which is exactly what the first
+ * live test run produced.
+ */
+export function pageTags(page: Pick<BluditPage, 'tags'>): string[] {
+  const value = page.tags;
+  if (Array.isArray(value)) {
+    return value.map((tag) => String(tag).trim()).filter((tag) => tag !== '');
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag !== '');
+  }
+  return [];
+}
+
+/**
+ * Bludit's category name, normalised to a string.
+ *
+ * `Page::category()` returns `false` when a page has no category, or when its
+ * stored category is not one the site defines. A page created with an arbitrary
+ * `category` therefore reads back as `false`. Verified against live Bludit 3.22.0.
+ */
+export function pageCategory(page: Pick<BluditPage, 'category'>): string {
+  return typeof page.category === 'string' ? page.category : '';
+}
+
+/**
  * Revision identifier for optimistic concurrency.
  *
  * Hashes the fields a write can change, so an approval based on a stale read
@@ -373,7 +406,9 @@ export async function pageRevision(page: BluditPage): Promise<string> {
     content: page.contentRaw ?? page.content ?? '',
     date: page.dateRaw ?? page.date ?? '',
     uuid: page.uuid ?? '',
-    category: page.category ?? '',
-    tags: page.tags ?? []
+    category: pageCategory(page),
+    // Normalised, so a mock that returns an array and a live site that returns a
+    // string produce the same revision for the same page.
+    tags: pageTags(page)
   });
 }

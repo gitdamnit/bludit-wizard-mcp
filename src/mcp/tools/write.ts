@@ -20,8 +20,8 @@
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { pageRevision } from '../../bludit/client.js';
-import type { BluditWriteFields } from '../../bludit/types.js';
+import { pageCategory, pageRevision, pageTags } from '../../bludit/client.js';
+import type { BluditPage, BluditWriteFields } from '../../bludit/types.js';
 import { ToolError } from '../../shared/errors.js';
 import { diffFields, diffText } from '../../proposals/diff.js';
 import {
@@ -47,7 +47,12 @@ const writableFields = {
     .optional()
     .describe('Page type. Bludit defaults new pages to `published`.'),
   slug: z.string().optional().describe('Custom URL slug. Bludit derives one from the title when omitted.'),
-  category: z.string().optional().describe('Category key.'),
+  category: z
+    .string()
+    .optional()
+    .describe(
+      'Category key. Bludit only resolves a category that the site already defines; any other value is stored but reads back as empty, so create the category in Bludit first.'
+    ),
   tags: z.string().optional().describe('Comma-separated tag list.'),
   parent: z.string().optional().describe('Parent page key, for hierarchical pages. Create only.'),
   date: z.string().optional().describe("Publish date in Bludit's `YYYY-MM-DD HH:MM:SS` format. A future date with type `published` becomes `scheduled`."),
@@ -433,17 +438,7 @@ export function registerWriteTools(server: McpServer, ctx: ToolContext): void {
   );
 }
 
-function summarize(page: {
-  key: string;
-  title?: string;
-  description?: string;
-  type?: string;
-  slug?: string;
-  dateRaw?: string;
-  date?: string;
-  tags?: string[];
-  permalink?: string;
-}): Record<string, unknown> {
+function summarize(page: BluditPage): Record<string, unknown> {
   return {
     key: page.key,
     title: page.title ?? '',
@@ -451,7 +446,9 @@ function summarize(page: {
     type: page.type ?? '',
     slug: page.slug ?? '',
     date: page.dateRaw ?? page.date ?? '',
-    tags: page.tags ?? [],
+    // Normalised: the API sends a comma-joined string.
+    tags: pageTags(page),
+    category: pageCategory(page),
     permalink: page.permalink ?? ''
   };
 }

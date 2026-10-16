@@ -55,12 +55,21 @@ const PROFILES: Record<HarnessProfile, { auth: string; mcp: string; schema: stri
   }
 };
 
-export async function startHarness(profile: HarnessProfile = 'runtime'): Promise<Harness> {
+/** Test-only var overrides, merged over each Worker's Wrangler config. */
+export interface HarnessOverrides {
+  auth?: Record<string, string>;
+  mcp?: Record<string, string>;
+}
+
+export async function startHarness(
+  profile: HarnessProfile = 'runtime',
+  overrides: HarnessOverrides = {}
+): Promise<Harness> {
   const paths = PROFILES[profile];
   const server = createTestHarness({
     workers: [
-      { configPath: paths.auth },
-      { configPath: paths.mcp },
+      { configPath: paths.auth, ...(overrides.auth ? { vars: overrides.auth } : {}) },
+      { configPath: paths.mcp, ...(overrides.mcp ? { vars: overrides.mcp } : {}) },
       { configPath: paths.schema }
     ]
   });

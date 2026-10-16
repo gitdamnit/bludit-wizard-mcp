@@ -14,6 +14,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { BluditPage } from '../../bludit/types.js';
 import { ToolError } from '../../shared/errors.js';
+import { pageCategory, pageTags } from '../../bludit/client.js';
 import { requireToolScope, siteFor, withAudit, type ToolContext } from './context.js';
 import { summarizePage, type PageSummary } from './pages.js';
 import { toResult, truncate } from './result.js';
@@ -101,8 +102,8 @@ export function registerIntelligenceTools(server: McpServer, ctx: ToolContext): 
             if ((page.title ?? '').toLowerCase().includes(needle)) matchedIn.push('title');
             if ((page.description ?? '').toLowerCase().includes(needle)) matchedIn.push('description');
             if ((page.slug ?? '').toLowerCase().includes(needle)) matchedIn.push('slug');
-            if ((page.category ?? '').toLowerCase().includes(needle)) matchedIn.push('category');
-            if ((page.tags ?? []).some((tag) => tag.toLowerCase().includes(needle))) matchedIn.push('tags');
+            if (pageCategory(page).toLowerCase().includes(needle)) matchedIn.push('category');
+            if (pageTags(page).some((tag) => tag.toLowerCase().includes(needle))) matchedIn.push('tags');
 
             let excerpt: string | undefined;
             if (args.include_content === true) {
@@ -203,21 +204,21 @@ export function registerIntelligenceTools(server: McpServer, ctx: ToolContext): 
             numberOfItems: scanLimit
           });
 
-          const targetTags = new Set((target.tags ?? []).map((tag) => tag.toLowerCase()));
+          const targetTags = new Set(pageTags(target).map((tag) => tag.toLowerCase()));
           const targetWords = significantWords(`${target.title ?? ''} ${target.description ?? ''}`);
-          const targetCategory = (target.category ?? '').toLowerCase();
+          const targetCategory = pageCategory(target).toLowerCase();
 
           const scored = (envelope.data ?? [])
             .filter((page) => page.key !== target.key)
             .map((page) => {
               const reasons: string[] = [];
               let score = 0;
-              const sharedTags = (page.tags ?? []).filter((tag) => targetTags.has(tag.toLowerCase()));
+              const sharedTags = pageTags(page).filter((tag) => targetTags.has(tag.toLowerCase()));
               if (sharedTags.length > 0) {
                 score += sharedTags.length * 3;
                 reasons.push(`shared tags: ${sharedTags.join(', ')}`);
               }
-              if (targetCategory !== '' && (page.category ?? '').toLowerCase() === targetCategory) {
+              if (targetCategory !== '' && pageCategory(page).toLowerCase() === targetCategory) {
                 score += 2;
                 reasons.push(`same category: ${page.category}`);
               }

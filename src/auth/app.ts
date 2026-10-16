@@ -18,6 +18,7 @@ import { AuthorizationError, CimdFetchError, type AuthRequest } from '@cloudflar
 import { escapeHtml, htmlResponse, renderPage } from '../shared/html.js';
 import { errorSummary, logger } from '../shared/log.js';
 import { filterGrantableScopes, REQUIRED_SCOPES } from '../shared/scopes.js';
+import { clientIp, enforceRateLimit } from '../shared/rate-limit.js';
 import { clearCookie, parseCookies, serializeCookie, sessionCookieName } from '../shared/cookies.js';
 import { safeNext } from '../shared/redirect.js';
 import { authenticate, countUsers, createUser } from './accounts.js';
@@ -125,6 +126,27 @@ export function createAuthApp(env: AuthEnv): AuthApp {
 
   app.post('/signin', async (c) => {
     const form = await readForm(c.req.raw);
+
+    // Brute-force protection, keyed by address *and* email so one account cannot
+    // be ground down from many addresses, and one address cannot be used to
+    // spray many accounts. The refusal is identical whether or not the account
+    // exists, so it cannot be used to enumerate accounts.
+    const limited = await enforceRateLimit(
+      c.env.DB,
+      c.env,
+      'signin',
+      [clientIp(c.req.raw), (form.email ?? '').trim().toLowerCase()],
+      {
+        format: 'json',
+        message: 'Too many sign-in attempts. Please wait and try again.',
+        secret: c.env.SESSION_SECRET
+      }
+    );
+    if (limited) {
+      logger.warn('auth.signin.rate_limited', {});
+      return limited;
+    }
+
     const user = await authenticate(c.env, form.email ?? '', form.password ?? '');
     if (!user) {
       logger.warn('auth.signin.failed', { emailDomain: (form.email ?? '').split('@')[1] ?? '' });
@@ -155,6 +177,14 @@ export function createAuthApp(env: AuthEnv): AuthApp {
 
   // ----- consent -----------------------------------------------------------
   app.get('/authorize', async (c) => {
+    // Bounds authorization-request floods before any client lookup happens.
+    const limited = await enforceRateLimit(c.env.DB, c.env, 'authorize', [clientIp(c.req.raw)], {
+      format: 'oauth',
+      message: 'Too many authorization requests from this address. Please try again later.',
+      secret: c.env.SESSION_SECRET
+    });
+    if (limited) return limited;
+
     const authorizationServer = createAuthorizationServer(c.env);
     const oauth = authorizationServer.getOAuthApi(c.env);
 

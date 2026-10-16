@@ -18,6 +18,7 @@ import { connectSite } from '../sites/connect.js';
 import { resolveSiteRow, toPublicSite, type SiteRow } from '../sites/registry.js';
 import { toBluditCredentials } from '../sites/credentials.js';
 import { verifyCsrf } from './sessions.js';
+import { enforceRateLimit } from '../shared/rate-limit.js';
 import type { AuthApp, AuthContext } from './types.js';
 
 export function registerSiteRoutes(app: AuthApp): void {
@@ -33,6 +34,15 @@ export function registerSiteRoutes(app: AuthApp): void {
 
   app.post('/sites/challenge', async (c) => {
     const session = c.get('session');
+    // Keyed by account, and checked before the body is read.
+    const limited = await enforceRateLimit(
+      c.env.DB,
+      c.env,
+      'pairing',
+      [session.user.id],
+      { format: 'json', message: 'Too many pairing challenges. Please wait and try again.', secret: c.env.SESSION_SECRET }
+    );
+    if (limited) return limited;
     const form = await readForm(c.req.raw);
     if (!(await verifyCsrf(c.env, session, form.csrf ?? ''))) {
       return forbidden();
@@ -51,6 +61,16 @@ export function registerSiteRoutes(app: AuthApp): void {
 
   app.post('/sites/connect', async (c) => {
     const session = c.get('session');
+    // Counts every attempt, successful or not, so repeated guessing against a
+    // site is bounded rather than free.
+    const limited = await enforceRateLimit(
+      c.env.DB,
+      c.env,
+      'connect',
+      [session.user.id],
+      { format: 'json', message: 'Too many connection attempts. Please wait and try again.', secret: c.env.SESSION_SECRET }
+    );
+    if (limited) return limited;
     const form = await readForm(c.req.raw);
     if (!(await verifyCsrf(c.env, session, form.csrf ?? ''))) {
       return forbidden();

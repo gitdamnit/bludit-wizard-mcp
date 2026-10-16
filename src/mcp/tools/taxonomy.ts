@@ -57,7 +57,8 @@ export function registerTaxonomyTools(server: McpServer, ctx: ToolContext): void
     'list_tags',
     {
       title: 'List tags',
-      description: 'List the tags in use on a Bludit site, with their name, description and page count.',
+      description:
+        'List the tags in use on a Bludit site, with their name, description and page count. Bludit only indexes tags for published, static and sticky pages, so a tag that exists only on a draft or a scheduled page will not appear here — verified against live Bludit 3.22.0.',
       inputSchema: {
         site: z.string().optional().describe('Site id, label, or hostname. Omit when only one site is connected.')
       },
@@ -75,7 +76,9 @@ export function registerTaxonomyTools(server: McpServer, ctx: ToolContext): void
               ok: true,
               site: { id: resolved.row.id, label: resolved.row.label, baseUrl: resolved.row.base_url },
               count: tags.length,
-              tags
+              tags,
+              note:
+                'Bludit indexes tags for published, static and sticky pages only. Tags on drafts and scheduled pages are stored on the page but do not appear in this list.'
             }
           };
         })

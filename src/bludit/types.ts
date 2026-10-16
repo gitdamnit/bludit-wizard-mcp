@@ -37,9 +37,25 @@ export interface BluditPage {
   date?: string;
   dateRaw?: string;
   dateUTC?: string;
-  tags?: string[];
+  /**
+   * Comma-joined on the wire, an array in Bludit's own database.
+   *
+   * `Page::json()` calls `tags(false)`, which returns `implode(',', $tags)`.
+   * Verified against live Bludit Community and Pro 3.22.0; see
+   * `docs/BLUDIT_COMPATIBILITY_MATRIX.md`. Use `pageTags()` rather than reading
+   * this directly.
+   */
+  tags?: string | string[];
   username?: string;
-  category?: string;
+  /**
+   * The category **name**, or `false`.
+   *
+   * `Page::category()` resolves the page's stored category key against the site's
+   * category list and returns `false` when there is no match — which includes the
+   * case where a page was stored with a category that the site has never defined.
+   * Verified against live Bludit Community and Pro 3.22.0. Use `pageCategory()`.
+   */
+  category?: string | false;
   uuid?: string;
   permalink?: string;
   coverImage?: string | false;

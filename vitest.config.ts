@@ -6,7 +6,9 @@ export default defineConfig({
     // workerd through wrangler's `createTestHarness`, which is a Miniflare
     // runtime, so there is no need for a separate Workers test environment.
     environment: 'node',
-    include: ['test/**/*.test.ts'],
+    // Live tests need Docker and real credentials, so they are excluded here and
+    // run from `vitest.live.config.ts`. The default suite stays hermetic.
+    include: ['test/unit/**/*.test.ts', 'test/integration/**/*.test.ts', 'test/compat/**/*.test.ts'],
     testTimeout: 60_000,
     hookTimeout: 120_000,
     reporters: ['default', 'junit'],

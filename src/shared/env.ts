@@ -23,8 +23,13 @@ export interface AuthProps {
   credentialKeyVersion: number;
 }
 
-/** Secrets shared by the authorization server and the resource server. */
-export interface SharedSecrets {
+/**
+ * Configuration and secrets shared by both Workers.
+ *
+ * Renamed from `SharedSecrets` once rate limiting added non-secret variables
+ * here: a name that calls every field a secret invites treating them all as one.
+ */
+export interface SharedConfig {
   /**
    * base64 of 32 random bytes. Root key for encrypting Bludit credentials at rest.
    * Managed as a Worker secret; never stored in D1 and never logged.
@@ -38,9 +43,23 @@ export interface SharedSecrets {
   PAIRING_TTL_SECONDS?: string;
   /** Lifetime of a proposal in seconds. */
   PROPOSAL_TTL_SECONDS?: string;
+
+  /**
+   * Set to `"false"` to disable rate limiting entirely. Intended for local
+   * development and for tests that are not about rate limiting.
+   */
+  RATE_LIMIT_ENABLED?: string;
+  /** Per-bucket overrides in `"<limit>/<windowSeconds>"` form. See rate-limit.ts. */
+  RL_SIGNIN?: string;
+  RL_AUTHORIZE?: string;
+  RL_TOKEN?: string;
+  RL_REGISTER?: string;
+  RL_PAIRING?: string;
+  RL_CONNECT?: string;
+  RL_MCP?: string;
 }
 
-export interface AuthEnv extends SharedSecrets {
+export interface AuthEnv extends SharedConfig {
   /** KV namespace owned by the OAuth provider: clients, grants, codes, tokens. */
   OAUTH_KV: KVNamespace;
   /** D1: accounts, sessions, sites, pairing challenges, proposals, audit log. */
@@ -59,7 +78,7 @@ export interface AuthEnv extends SharedSecrets {
   ALLOW_SIGNUP?: string;
 }
 
-export interface McpEnv extends SharedSecrets {
+export interface McpEnv extends SharedConfig {
   DB: D1Database;
   /**
    * Private RPC binding to the authorization server Worker's `validateToken`.

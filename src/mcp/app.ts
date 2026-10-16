@@ -23,6 +23,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { REQUIRED_SCOPES, hasScopes, scopesForTool } from '../shared/scopes.js';
 import { requiredScopesForTools, toolNamesFromBody } from './routing.js';
 import { errorSummary, logger } from '../shared/log.js';
+import { enforceRateLimit } from '../shared/rate-limit.js';
 import { trimBase, type AuthProps, type McpEnv } from '../shared/env.js';
 import { createMcpServer } from './server.js';
 import { buildToolContext } from './tools/context.js';
@@ -48,6 +49,17 @@ async function handleMcpRequest(
   ctx: OAuthResourceContext<AuthProps>
 ): Promise<Response> {
   const auth = ctx.auth;
+
+  // Per account and per client, before the body is parsed. A shared access token
+  // therefore cannot be used to hammer a site from many clients at once.
+  const limited = await enforceRateLimit(
+    env.DB,
+    env,
+    'mcp',
+    [ctx.props.userId, auth.clientId],
+    { format: 'json', message: 'Too many requests. Please slow down.' }
+  );
+  if (limited) return limited;
 
   // Baseline: every operation needs the advertised read scopes.
   if (!hasScopes(auth.scope, REQUIRED_SCOPES)) {
