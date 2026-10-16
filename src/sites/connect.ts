@@ -93,7 +93,7 @@ export async function connectSite(deps: ConnectDeps, input: ConnectSiteInput): P
   const client = new BluditClient({ baseUrl, ...credentials }, { policy: deps.policy });
 
   // Step 3: the site must prove it received the challenge.
-  const proofMethod = await proveSiteControl(deps, client, challengeRow, input.challenge.trim(), credentials);
+  const proofMethod = await proveSiteControl(deps, client, input.challenge.trim(), credentials);
 
   // Step 4: learn what the site supports, then store it encrypted.
   const capabilities = await detectCapabilities(client, {
@@ -144,11 +144,9 @@ export async function connectSite(deps: ConnectDeps, input: ConnectSiteInput): P
 async function proveSiteControl(
   deps: ConnectDeps,
   client: BluditClient,
-  challengeRow: { label: string },
   challenge: string,
   credentials: SiteCredentialsInput
 ): Promise<ProofMethod> {
-  void challengeRow;
   const failures: string[] = [];
 
   // Preferred: the Wizard extension proves possession of its own API key.

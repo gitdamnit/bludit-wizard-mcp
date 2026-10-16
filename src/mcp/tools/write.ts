@@ -29,10 +29,9 @@ import {
   createProposal,
   getProposal,
   markProposalApplied,
-  proposalTtlSeconds,
-  rejectProposal
+  proposalTtlSeconds
 } from '../../proposals/store.js';
-import { requireToolScope, siteFor, withAudit, type ResolvedSite, type ToolContext } from './context.js';
+import { requireToolScope, siteFor, withAudit, type ToolContext } from './context.js';
 import { assertWritable, pickWriteFields, type WriteFieldsInput } from './write-helpers.js';
 
 export { assertWritable, pickWriteFields } from './write-helpers.js';
@@ -465,5 +464,3 @@ function serialize(page: object): Record<string, unknown> {
 function serializeFields(fields: BluditWriteFields): Record<string, unknown> {
   return fields as Record<string, unknown>;
 }
-
-export { rejectProposal, type ResolvedSite };
