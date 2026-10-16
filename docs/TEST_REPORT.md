@@ -36,9 +36,13 @@ this project.
 ## Results
 
 ```
+# Vitest — unit, integration and compatibility
 Test Files  14 passed (14)
      Tests  253 passed (253)
   Duration  217.49s
+
+# Playwright — authorization server pages in Chromium
+    9 passed (1.1m)
 ```
 
 Machine-readable results: `reports/junit.xml` (JUnit XML, written by every run).
@@ -51,6 +55,11 @@ Machine-readable results: `reports/junit.xml` (JUnit XML, written by every run).
 | `test/unit/` | 8 | 169 | Pure logic, Node environment, no Workers | ~0.6 s |
 | `test/integration/` | 5 | 75 | Two Workers in workerd, real Service Binding, real HTTP | ~2.5 min |
 | `test/compat/` | 1 | 9 | Modelled Bludit variants, table-driven | ~50 s |
+| `test/browser/` | 1 | 9 | Playwright, headless Chromium, against the same in-process Workers | ~1.1 min |
+
+Total: **262 tests**. `reports/junit.xml` and `reports/playwright-junit.xml` are
+written by `npm test` and `npm test:browser`; `reports/coverage/` by
+`npx vitest run --coverage`. All three are git-ignored build output.
 
 ### Unit tests
 
@@ -82,10 +91,25 @@ outcomes, plus four cross-variant consistency assertions. Results are written to
 `reports/bludit-compatibility.json`; the interpretation is in
 [BLUDIT_COMPATIBILITY_MATRIX.md](BLUDIT_COMPATIBILITY_MATRIX.md).
 
+### Browser tests
+
+| Test | Covers |
+|---|---|
+| Landing page | Renders, links to sign in and sign up |
+| Sign-up and session | Lands on `/sites`; the session cookie is `HttpOnly` and `SameSite=Lax`, and is unreadable from page script |
+| Pairing challenge form | Renders the challenge; the connect form carries the CSRF token and challenge forward, and names the exact well-known path for the URL entered |
+| Escaping | A label containing `"><img src=x onerror=alert(1)>` produces no element and is displayed as literal text |
+| Unauthenticated `/sites` | Redirects to sign in rather than failing |
+| Return to destination | `/sites` → sign in → back to `/sites` |
+| Failure text parity | A wrong password and an unknown account produce identical text |
+| Password policy | A short password is refused at sign-up |
+| Connected clients | Protected; shows an empty state when signed in |
+
 ## Coverage
 
 Produced by `npx vitest run --coverage` (V8). Instrumented files are `src/**`,
-excluding type-only declarations.
+excluding type-only declarations. Browser tests are not included: Playwright runs
+a separate process and drives the pages over HTTP.
 
 <!-- COVERAGE-TABLE -->
 

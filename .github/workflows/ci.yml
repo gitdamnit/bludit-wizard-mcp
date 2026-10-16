@@ -33,6 +33,12 @@ jobs:
       - name: Integration and compatibility tests
         run: npm run test:integration && npm run test:compat
 
+      - name: Install the Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:browser
+
       - name: Verify both Workers build
         run: npm run build:auth && npm run build:mcp
 

@@ -196,6 +196,7 @@ regression test.
 | Low | `edit_page` did not report whether the page body changed, only metadata fields, so a body-only edit looked like a no-op. | Added `contentChanged`. |
 | Low | A 404 on `/api/pages` was reported as `not_found` ("the page does not exist") when it actually means the API plugin is disabled. | Added `capability_unavailable` for endpoint-level 404s. |
 | Low | The mock's tag listing used a malformed Set construction (`Array#flat` in the wrong place), which also revealed that the tool could not distinguish tag arrays from comma-joined strings. | Fixed both. |
+| Medium | Every `/sites` route dereferenced `session.user` without checking for a session, so an unauthenticated visit returned a 500 rather than redirecting to sign in. Found by the first browser test written against those pages. | Added a session guard middleware over `/sites` and `/sites/*`. |
 
 ### Accepted risks
 
@@ -221,10 +222,9 @@ regression test.
 
 ## Verification status
 
-Everything above is asserted by the test suite: 253 tests, of which 84 exercise
-the Worker HTTP surfaces, the OAuth protocol and the per-tenant isolation
-boundaries in real workerd. `docs/TEST_REPORT.md` records what was measured and on
-which commit.
+Everything above is asserted by the test suite: 262 tests — 169 unit, 84 driving
+real workerd, and 9 in a real browser. `docs/TEST_REPORT.md` records what was
+measured and on which commit.
 
 Two things are **not** verified and are not claimed:
 
