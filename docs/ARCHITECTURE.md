@@ -285,6 +285,7 @@ Verified against Cloudflare's documentation on 2026-10-16 (see
 | D1 rows read | 5M/day | 25B/month |
 | D1 rows written | 100,000/day | 50M/month |
 | D1 queries per Worker invocation | 50 | 1,000 |
+| Rate limiting cost per request | 1 row read + 1 row write | same |
 | D1 database size | 500 MB | 10 GB |
 | D1 storage | 5 GB total | 5 GB, +$0.75/GB-mo |
 

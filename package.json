@@ -29,6 +29,7 @@
     "test:live": "vitest run --config vitest.live.config.ts",
     "live:up": "scripts/live-bludit-up.sh",
     "live:down": "scripts/live-bludit-up.sh --down",
+    "review:artifact": "scripts/make-review-artifact.sh",
     "test:e2e": "vitest run test/integration test/compat",
     "test:browser": "playwright test",
     "dev:auth": "wrangler dev --config wrangler.auth.jsonc --persist-to .wrangler/state",

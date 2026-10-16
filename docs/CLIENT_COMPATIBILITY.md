@@ -93,6 +93,7 @@ clients is documented to.
 | Scope step-up via `403 insufficient_scope` | ✅ |
 | RFC 8707 resource indicators | ✅ |
 | RFC 9207 `iss` in the authorization response | ✅ |
+| `429` with `Retry-After` on every public entry point | ✅ |
 | Private-use redirect URIs (RFC 8252) | ❌ by default; `allowPrivateUseRedirectUris` is off. A client that *only* offers one cannot be used unless that option is enabled. |
 
 ### Tools
@@ -163,6 +164,7 @@ from documentation.
 | A client that validates the tool schema strictly | `inputSchema` is generated from Zod; all fields are optional for tools whose requirements are enforced server-side | `create_page` without `title` shows a tool error rather than a schema error |
 | A client whose `client_name` is empty | The consent page falls back to the client id | The user sees an opaque identifier — expected, and documented |
 | A client that requires `outputSchema` | Not declared | No structured output consumption |
+| A client that does not back off on `429` | Every public entry point is rate limited | Repeated calls return `429` with `Retry-After`; a client that ignores it gets no results until the window resets |
 
 ## stdio clients
 
@@ -174,11 +176,22 @@ This path is **also unverified** against a live client in this work. It is the
 upstream code at its pinned commit, so whatever compatibility it had upstream is
 unchanged — but that is an argument from provenance, not from testing.
 
+## A note on the live Bludit verification
+
+24 tests now pass against real Bludit Community and Pro installations. That is
+evidence about the **CMS integration**, not about any MCP client: those runs drive
+the server through the same harness client described above. It does not change a
+single row in the target-client table.
+
+It is worth stating because it is exactly the kind of result that gets
+over-claimed. "Verified against live Bludit" is true. "Works with ChatGPT" is not.
+
 ## What is safe to publish today
 
 - "Implements MCP Streamable HTTP and OAuth 2.1 per the 2026-07-28 specification."
 - "Verified end to end against a specification-following client in automated
   tests running in workerd."
+- "Verified against live Bludit Community and Pro 3.22.0 installations."
 - "Not yet verified against any specific MCP client product."
 
 What is **not** safe to publish, and must not be claimed anywhere:

@@ -89,6 +89,50 @@ re-reads the page and refuses if the revision moved. `edit_page` accepts an
 optional `expected_revision` for the same protection on the direct path. This
 defeats the "approve a diff, then silently overwrite a newer edit" failure mode.
 
+### Rate limiting
+
+Every public entry point is bounded. This was the one accepted risk that
+genuinely blocked a public deployment, and it is implemented and tested (42
+tests).
+
+| Bucket | Principal | Default | Protects |
+|---|---|---|---|
+| `signin` | address **and** email | 10 / 15 min | Credential brute force |
+| `authorize` | address | 240 / hour | Authorization-request floods |
+| `token` | address and client | 240 / hour | Token-endpoint abuse, including revocation requests |
+| `register` | address | 10 / hour | Dynamic Client Registration spam |
+| `pairing` | account | 20 / hour | Pairing-challenge floods |
+| `connect` | account | 30 / hour | Repeated connection attempts, successful or not |
+| `mcp` | account and client | 300 / min | Tool-call abuse, per client rather than per account |
+
+Design properties that matter:
+
+- **Counters are global, not per-colo.** They live in D1 because KV allows one
+  write per second to the same key and is eventually consistent, and because an
+  in-memory counter gives an attacker a fresh budget per isolate. ADR-011 records
+  the trade-off.
+- **No personal data is stored.** A bucket is
+  `category:HMAC-SHA256(secret, identifiers)`, so a database leak reveals counts
+  and not identities. A test asserts that no IP address, no email address and no
+  plain identifier appears in the table.
+- **A refused request is still counted**, so a persistent client does not get a
+  free pass at the start of the next window.
+- **A malformed limit falls back to the default** rather than parsing as zero,
+  which would deny every request.
+- **Sign-in refusals are byte-identical for a real and an invented account**, so
+  the limiter cannot be used to enumerate accounts. A test asserts this.
+- **Storage failure fails open** and logs. D1 being unavailable already breaks the
+  service, so failing closed would turn a partial outage into a total one without
+  improving security.
+- **A `429` carries `Retry-After`**, plus `x-ratelimit-limit`,
+  `x-ratelimit-remaining` and `x-ratelimit-reset`. The token and registration
+  endpoints return an OAuth-shaped body; everything else returns plain JSON.
+
+Cloudflare's Rate Limiting binding is a cheaper, per-colo mechanism and is
+documented in `ARCHITECTURE.md` as an optional additional layer. It is not the
+mechanism here because it cannot be exercised from the test harness, and an
+untested control is not a control.
+
 ### SSRF
 
 Four layers, in order of strength:
@@ -197,6 +241,8 @@ regression test.
 | Low | A 404 on `/api/pages` was reported as `not_found` ("the page does not exist") when it actually means the API plugin is disabled. | Added `capability_unavailable` for endpoint-level 404s. |
 | Low | The mock's tag listing used a malformed Set construction (`Array#flat` in the wrong place), which also revealed that the tool could not distinguish tag arrays from comma-joined strings. | Fixed both. |
 | Medium | Every `/sites` route dereferenced `session.user` without checking for a session, so an unauthenticated visit returned a 500 rather than redirecting to sign in. Found by the first browser test written against those pages. | Added a session guard middleware over `/sites` and `/sites/*`. |
+| High | `tags` is a comma-joined **string** on the wire, not an array. `search_pages` and `get_related_pages` called `.some()` on it and threw, returning `internal_error` on a real site; `summarizePage` discarded every page's tags. Found by the first live test run against real Bludit. | Added `pageTags()` and used it in every tag read. The mock was the thing that was wrong, and it now reproduces the real representation. |
+| Medium | `category` is `false`, not a string, when a page has no category or when its stored category is not one the site defines. `search_pages` threw `false.toLowerCase is not a function`. Found by the same live run. | Added `pageCategory()`, typed the field as `string \| false`, and documented that the `category` write argument is inert unless the category exists. |
 
 ### Accepted risks
 
@@ -204,34 +250,74 @@ regression test.
 |---|---|---|
 | **Both Workers share `SITE_CREDENTIAL_KEY`.** | The resource server must decrypt credentials to call the CMS, and the authorization server must encrypt them at connection time. Splitting the key would require the authorization server to proxy every CMS call. | The key is a secret, the shared D1 database is already a coupling, and the alternative is a much larger trust surface. Documented in `ARCHITECTURE.md`. |
 | **KV is eventually consistent.** | Revoking a grant may not take effect everywhere instantly. KV propagates globally in up to 60 seconds. | Tokens have a one-hour TTL, so the window is bounded. Security-critical revocation could move to D1 or Durable Objects if it ever matters. |
-| **No rate limiting.** | A single account can make unlimited tool calls, and an authenticated client can hammer a connected site. | Worker requests cost money and D1 queries cost rows, so abuse is visible in the dashboard. The rate-limit signal exists in `Retry-After` handling but nothing throttles. See "Remaining work". |
+| **No MFA on service accounts.** | An account controls the websites connected to it, so account takeover is website takeover. | Email and password only, with brute-force protection. Listed below as a public-launch blocker. |
+| **No password reset by email.** | A user who forgets a password has no route back in. | Needs an email provider, which is a new external service and needs an approval. Listed below as a public-launch blocker. |
+| **No alerting.** | Abuse or a failure spike is visible in the Cloudflare dashboard but pages nobody. | Structured logs, an audit table, and `429` metrics exist; no notification channel is configured. |
+| **The platform SSRF layer cannot be probed locally.** | Miniflare does not enforce `global_fetch_strictly_public`, so the runtime layer is verified by configuration and by post-deployment checks rather than by the test suite. | The URL-policy layer is load-bearing and is tested accordingly; a test documents the gap so it cannot be mistaken for coverage. |
 | **`get_website_settings` requires an admin auth token.** | Bludit gates `/api/settings` behind an authenticated admin, so this one tool needs more than the read-only token. | The tool is scope-gated separately (`settings:read`) and the capability report tells the user when the auth token is missing rather than failing opaquely. |
 | **The Wizard pairing contract is proposed, not implemented.** | Sites today use the ownership file unless the extension gains `/pair`. | The ownership file is a complete, plugin-free path. The proposed contract is in `PHP_WIZARD_INTEGRATION.md`. |
 | **Credential key rotation is unimplemented.** | Rotating `SITE_CREDENTIAL_KEY` currently requires reconnecting every site. | `CREDENTIAL_KEY_VERSION` is recorded on each grant, so staged rotation is possible later. |
 | **`/api/users` and upload endpoints are never probed.** | A site could have them disabled and this server would not know. | Deliberate: probing `/api/users` would disclose account records, and probing uploads would perform an upload. Reported as `documented`, not `supported`. |
 | **Account passwords are the only second factor.** | No MFA on this service's own accounts. | The accounts are self-hosted and the blast radius is the connected sites. MFA is on the hardening list. |
 
+## Deployment classification
+
+Not every accepted risk blocks the same thing. Splitting them is the difference
+between a usable internal deployment and a defensible public one.
+
+### Does not block a first development deployment
+
+- Both Workers share `SITE_CREDENTIAL_KEY`. Required for the resource server to
+  decrypt; the alternative is proxying every CMS call.
+- KV eventual consistency on revocation, bounded by the one-hour access-token TTL.
+- The platform SSRF layer being unprobeable locally.
+- `get_website_settings` needing an admin auth token — Bludit's own rule.
+- The Wizard pairing contract being proposed rather than implemented.
+- Only 3.22.0 being live-verified.
+
+### Blocks a public launch
+
+1. **No MFA on service accounts.** Credential stuffing on a password-only login is
+   the most likely route to a connected website.
+2. **No password reset.** A locked-out user is a support incident with no
+   resolution.
+3. **No MCP client verified.** The protocol is proven; no product has been
+   connected. This is the largest gap in the publication case.
+4. **No alerting.** Abuse and failures are visible but nobody is told.
+5. **No credential key rotation.** A suspected key compromise currently means
+   reconnecting every site by hand.
+6. **No `/.well-known/security.txt`.** Needed for coordinated disclosure.
+
 ### Remaining work, in priority order
 
-1. **Rate limiting** per account and per client, with `Retry-After`, before any
-   public deployment. Cloudflare Rate Limiting rules are the cheapest option.
-2. **Credential key rotation** tooling, using `CREDENTIAL_KEY_VERSION`.
-3. **MFA** for service accounts.
-4. **Multi-region KV revocation** if immediate revocation becomes a requirement.
-5. **`/.well-known/security.txt`** for coordinated disclosure.
+1. **MFA** on service accounts, and a password reset path. Both need an email
+   provider for a proper implementation, which is a new external service and an
+   approval.
+2. **Verify one real MCP client** and record the result in
+   `CLIENT_COMPATIBILITY.md`.
+3. **Credential key rotation** using `CREDENTIAL_KEY_VERSION`, which every grant
+   already records.
+4. **Alerting** on `429` volume, Worker errors and D1 write growth.
+5. **`/.well-known/security.txt`**, and a published disclosure address.
+6. **A second look at revocation latency** if immediate revocation becomes a
+   requirement, which would mean moving token records to D1 or Durable Objects.
 
 ## Verification status
 
-Everything above is asserted by the test suite: 263 tests — 169 unit, 85 driving
-real workerd, and 9 in a real browser. `docs/TEST_REPORT.md` records what was
-measured and on which commit.
+Everything above is asserted by the test suite: **357 tests** —
+210 unit, 105 integration in real workerd, 9 compatibility across modelled Bludit
+variants, 24 against real Bludit installations, and 9 in a real browser. `docs/TEST_REPORT.md` records what was measured and on which
+commit.
 
-Two things are **not** verified and are not claimed:
+Things that are **not** verified and are not claimed:
 
-- **No live Bludit site has been connected.** All CMS behaviour is tested against
-  a mock reproduced from the shipped API plugin. The compatibility matrix labels
-  every cell accordingly.
 - **No MCP client has been used end to end.** The OAuth and MCP flows are driven
   by a purpose-built client in the test harness that follows the specifications,
   not by ChatGPT, Claude, Codex, Gemini CLI or OpenCode. See
-  `docs/CLIENT_COMPATIBILITY.md`.
+  `docs/CLIENT_COMPATIBILITY.md`. This is a public-launch blocker.
+- **The live Bludit installations are loopback over plain http**, reached through
+  the development allowance. The production SSRF policy and TLS are therefore not
+  exercised by the live runs.
+- **The Wizard extension has not been live-tested.** Its pairing path is verified
+  against a faithful mock of the proposed contract.
+- **Nothing is deployed.** None of this has run on Cloudflare.

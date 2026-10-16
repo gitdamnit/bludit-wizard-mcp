@@ -230,6 +230,18 @@ Paid.
 | `PAIRING_TTL_SECONDS` | auth | no | Default 900. |
 | `PROPOSAL_TTL_SECONDS` | both | no | Default 900. |
 | `CREDENTIAL_KEY_VERSION` | both | no | Default 1. Recorded on each grant, for future key rotation. |
+| `RATE_LIMIT_ENABLED` | both | no | `"false"` disables rate limiting entirely. Development and non-rate-limit tests only. |
+| `RL_SIGNIN` | auth | no | Default `10/900`. Format `<limit>/<windowSeconds>`. |
+| `RL_AUTHORIZE` | auth | no | Default `240/3600`. |
+| `RL_TOKEN` | auth | no | Default `240/3600`. Covers the token and revocation endpoints. |
+| `RL_REGISTER` | auth | no | Default `10/3600`. Dynamic Client Registration, per address. |
+| `RL_PAIRING` | auth | no | Default `20/3600`, per account. |
+| `RL_CONNECT` | auth | no | Default `30/3600`, per account, counting every attempt. |
+| `RL_MCP` | mcp | no | Default `300/60`, per account and client. |
+
+A malformed `RL_*` value falls back to the default rather than being rejected, so
+a typo cannot take the service down or deny every request. Raising a limit is a
+`vars` change and a redeploy. 
 
 ## Key rotation
 
@@ -239,6 +251,40 @@ already recorded on every grant so a future rotation can be staged: add the new
 key alongside the old, re-encrypt lazily as each site is used, then remove the old
 key. That re-encryption job does not exist yet — see "Remaining work" in
 `SECURITY.md`.
+
+## Live Bludit testing
+
+The hermetic suite runs anywhere. The live suite needs real Bludit installations,
+and Docker is the cheapest way to get them.
+
+```bash
+# Community 3.22.0 is downloaded automatically; Pro needs the archive
+PRO_ZIP=/path/to/bludit-pro-3.22.0-20260510.zip scripts/live-bludit-up.sh both
+npm run test:live            # 24 tests per edition
+scripts/live-bludit-up.sh --down
+```
+
+The script builds a PHP 8.3 + Apache image, installs Bludit through its own demo
+installer, signs in, reads the API credentials from `/admin/api`, and writes
+`reports/live-bludit-credentials.json`. It is idempotent: re-running reuses the
+staged source and recreates the containers.
+
+Notes:
+
+- Docker is used **only** for these installations. Nothing on the production path
+  depends on it.
+- The credentials are for throwaway loopback containers. They are written to a
+  git-ignored path and must never be committed or copied into a report.
+- The images are deliberately unhardened and must never be exposed.
+- `tools/live-bludit/Dockerfile` is the only Dockerfile in the repository. It is
+  built from a generated context containing just the staged Bludit tree, so the
+  repository is never sent to the daemon.
+- If `PRO_ZIP` is unset, the Pro half is skipped and the live suite runs against
+  Community alone.
+
+After changing anything that touches the Bludit client, run the live suite: it is
+what found that `tags` is a comma-joined string and that `category` is `false`,
+neither of which the mock had right.
 
 ## Testing profiles
 

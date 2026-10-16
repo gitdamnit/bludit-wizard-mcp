@@ -98,6 +98,16 @@ type-matching pages. The response says so.
 One page in full: raw Markdown, rendered HTML, metadata, and a **revision**
 identifier.
 
+Two field shapes are worth knowing, both verified against live Bludit 3.22.0 and
+both normalised before they reach you:
+
+- `tags` travels as a comma-joined **string** on the wire. It is returned as an
+  array here.
+- `category` is `false` when the page has no category, **or when its stored
+  category is not one the site defines**. It is returned as an empty string here.
+  This is why the `category` argument on `create_page` and `edit_page` is inert
+  unless the category already exists in Bludit.
+
 The revision is a SHA-256 over the fields a write can change. It is what
 `expected_revision`, `propose_page_edit` and `verify_page_update` compare
 against. Bludit's API exposes neither `dateModified` nor `md5file`, so the
@@ -120,6 +130,11 @@ every page write, so this reflects the last write.
 ### `list_tags` · `pages:read` · CMS read
 
 Tag name, description and page count.
+
+**Bludit only indexes tags for published, static and sticky pages.** A tag that
+exists only on a draft or a scheduled page is stored on the page but never appears
+here. That is Bludit's rule (`$GLOBALS['DB_TAGS_TYPES']`), verified against live
+Bludit 3.22.0, and the tool's own response says so.
 
 ## Deterministic content intelligence
 

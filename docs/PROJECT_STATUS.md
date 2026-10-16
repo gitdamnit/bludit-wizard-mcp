@@ -1,0 +1,182 @@
+# Project status
+
+**Branch:** `feat/remote-mcp-oauth-v1`
+**Head:** see the commit that last touched this file (`git log -1 -- docs/PROJECT_STATUS.md`)
+**State:** implementation and testing complete; **not deployed**; no Cloudflare
+resource created; nothing published.
+
+## 1. Summary
+
+| Area | State |
+|---|---|
+| Implementation | Complete: 19 MCP tools, OAuth 2.1 authorization server, resource server, site pairing, proposals, rate limiting |
+| Hermetic test suite | **324 passing** across 18 files |
+| Live test suite | **24 passing** against real Bludit Community 3.22.0 and real Bludit Pro 3.22.0 |
+| Live compatibility | Verified, both editions |
+| Type checking | Clean, with `noUnusedLocals` |
+| Worker builds | Both bundle, well within the 64 MiB limit |
+| Deployment | **Not started** — awaiting approval |
+| Publication | Prepared, not submitted (14 blocking items) |
+
+## 2. What is verified, and how
+
+| Claim | Evidence |
+|---|---|
+| The OAuth flow works end to end | Discovery → DCR → PKCE → consent → token → `tools/list` → `tools/call` → scope step-up → refresh → revocation, driven by a specification-following client in real workerd |
+| Multi-tenant isolation holds | Per-client and per-account tests; another account's site id, pages, capabilities and proposals all refused with `not_found` |
+| Credentials are encrypted at rest | Read back out of real D1: ciphertext, no plaintext, distinct ciphertext for identical credentials on two sites, and every read tool's output scanned for the token |
+| SSRF defence holds | Reserved ranges, IPv4-mapped/NAT64/6to4, obfuscated literals, internal hostnames, embedded credentials, scheme rules, redirect revalidation, response bounds |
+| Rate limiting holds | 42 tests across every bucket, including window reset, per-client isolation, no PII in storage, and a disabled-mode test |
+| The tool catalogue works on real Bludit | **24 live tests**, 14 operations each, on Community and Pro |
+| Community and Pro are equivalent for this server | `bl-plugins/api/plugin.php` and every kernel file the API depends on are **byte-identical** between the two 3.22.0 trees, and both live runs produce identical results |
+| Production configuration is safe | `test/unit/production-config.test.ts` asserts the deployable configs set the SSRF flag, disable insecure site URLs, keep rate limiting on, carry no secret, agree on issuer and resource, and contain no route |
+
+## 3. Defects found during this work
+
+Eleven, all fixed and all with regression tests. Nine are in `SECURITY.md`; the
+three below were found by live testing and are the most instructive:
+
+| Severity | Finding | How it surfaced |
+|---|---|---|
+| High | `tags` is a comma-joined **string** on the wire, not an array. `search_pages` and `get_related_pages` called `.some()` on it, which threw and returned `internal_error` on a real site. `summarizePage` silently returned an empty tag list for every page. | First live run. The mock returned an array, so the hermetic suite passed while the live behaviour was broken. |
+| Medium | `category` is `false`, not a string, when a page has no category — including when a page was stored with a category the site does not define. `search_pages` threw `false.toLowerCase is not a function`. | Same live run, after fixing tags. |
+| Medium | Bludit indexes tags only for published, static and sticky pages, so a draft's tags never appear in `list_tags`. | Same live run; the tool description and the compatibility matrix now state the rule. |
+
+The lesson is recorded as ADR-013: a mock disagreeing with a live site is a mock
+defect first, and all three now reproduce faithfully in the mock.
+
+## 4. Remaining accepted risks
+
+Full reasoning in `SECURITY.md`. None of these blocks a **development**
+deployment; the ones marked *public* must be closed before a public launch.
+
+| Risk | Blocks a dev deployment? | Blocks a public launch? | Note |
+|---|---|---|---|
+| No MFA on service accounts | No | **Yes** | Account takeover is website takeover. Email and password only today. |
+| No password reset by email | No | **Yes** | A user who forgets a password has no route back in. Needs an email provider — a new external service and an approval. |
+| No alerting on `429`s or anomalies | No | Yes | Metrics exist in the dashboard; nothing pages anyone. |
+| Credential key rotation unimplemented | No | Yes | A suspected key compromise currently means reconnecting every site. `CREDENTIAL_KEY_VERSION` is recorded so staged rotation is possible. |
+| KV eventual consistency on revocation | No | No | Bounded by the one-hour access-token TTL and typically under 60 seconds. |
+| Both Workers share `SITE_CREDENTIAL_KEY` | No | No | Required for the resource server to decrypt; splitting it means proxying every CMS call. |
+| No verification against a real MCP client | No | **Yes** | The protocol is verified; no product has been connected. This is the largest single gap in the publication case. |
+| Only 3.22.0 live-verified | No | No | Later 3.22.x patches are modelled; below 3.22 is out of scope. |
+| `get_website_settings` needs an admin auth token | No | No | Bludit's own rule, disclosed in the capability report. |
+| No `/.well-known/security.txt` | No | No | Nice to have for coordinated disclosure. |
+| Wizard pairing contract is proposed, not implemented in PHP | No | No | The ownership-file path is complete and plugin-free. |
+
+## 5. What the first development deployment requires
+
+Nothing here is done yet. In order.
+
+### 5.1 Your decisions
+
+1. **The hostname.** `mcp.evanzellner.com` is assumed throughout. Confirm it, or
+   name another. It must be an `https` origin; the OAuth library accepts plain
+   http only on loopback.
+2. **Approval to create Cloudflare resources**: one KV namespace and one D1
+   database, both on the free tier initially.
+3. **The Workers Paid plan** ($5/month), which `ARCHITECTURE.md` shows is required
+   — password hashing exceeds the free tier's 10 ms CPU allowance and its 1,000 KV
+   writes per day cannot carry OAuth grants.
+4. **Approval to deploy** two Workers, and later to add a DNS record.
+5. **A decision on `ALLOW_SIGNUP`.** Open by default, and rate limited, but
+   there is no invite-only mode yet.
+
+### 5.2 Secrets to generate and store
+
+Three, all generated locally, two of them stored in a password manager because
+Wrangler cannot read a secret back.
+
+| Secret | Scope | If it is lost |
+|---|---|---|
+| `SITE_CREDENTIAL_KEY` | both Workers, **same value** | Every connected site must be reconnected; stored credentials become undecryptable |
+| `SESSION_SECRET` | auth | All sessions and CSRF tokens invalidated, outstanding pairing challenges die |
+| `CONSENT_SECRET` | auth | Remembered consents forgotten; users are re-prompted |
+
+### 5.3 Commands, in order
+
+```bash
+# 1. Resources (approval gate)
+npx wrangler kv namespace create OAUTH_KV
+npx wrangler d1 create bludit-wizard-mcp
+# paste the ids into wrangler.auth.jsonc and wrangler.mcp.jsonc
+
+# 2. Real hostnames in both configs
+#    AUTH_ISSUER=https://<host>   MCP_RESOURCE=https://<host>/mcp
+
+# 3. Secrets (approval gate)
+npx wrangler secret put SITE_CREDENTIAL_KEY --config wrangler.auth.jsonc
+npx wrangler secret put SESSION_SECRET        --config wrangler.auth.jsonc
+npx wrangler secret put CONSENT_SECRET        --config wrangler.auth.jsonc
+npx wrangler secret put SITE_CREDENTIAL_KEY   --config wrangler.mcp.jsonc
+
+# 4. Schema (approval gate)
+npx wrangler d1 migrations apply bludit-wizard-mcp --remote --config wrangler.auth.jsonc
+
+# 5. Deploy — authorization server first, it owns the service binding target
+npm run build:auth && npm run build:mcp
+npx wrangler deploy --config wrangler.auth.jsonc
+npx wrangler deploy --config wrangler.mcp.jsonc
+# (approval gate)
+
+# 6. Verify — commands in DEPLOYMENT.md, section "Verification after deploying"
+```
+
+### 5.4 What must be true before calling it done
+
+The nine acceptance criteria in `PRODUCT_REQUIREMENTS.md` §7. In short: both
+Workers healthy, discovery correct, a fresh client authorizes, a real Bludit site
+connects and lists pages, rate limits hold under a deliberate flood, one named MCP
+client is verified and recorded, no secret appears in a log, and the key is backed
+up.
+
+### 5.5 Immediately after that
+
+1. Verify one real MCP client and record it in `CLIENT_COMPATIBILITY.md`. This is
+   the highest-value outstanding task for both the OpenAI submission and the
+   portfolio write-up.
+2. Run the live suite against a **remote** Community and Pro install, so the
+   compatibility evidence is not loopback-only.
+3. Re-run `npm test` and `npm run test:live` and update `TEST_REPORT.md` with the
+   deployment's commit.
+
+## 6. How to reproduce everything locally
+
+```bash
+npm ci
+npm run typecheck          # clean
+npm test                   # 324 tests, hermetic: no network, no Docker, no credentials
+npm run test:browser       # 9 browser tests
+npm run build:auth && npm run build:mcp
+
+# Live: real Bludit Community, and Pro if you point PRO_ZIP at the archive
+PRO_ZIP=/path/to/bludit-pro-3.22.0.zip scripts/live-bludit-up.sh both
+npm run test:live          # 24 tests against the real installations
+scripts/live-bludit-up.sh --down
+```
+
+Docker is used **only** for the live Bludit installations. Nothing in the
+production path depends on it.
+
+## 7. Artifacts
+
+| Path | Contents |
+|---|---|
+| `reports/junit.xml` | Vitest results |
+| `reports/playwright-junit.xml` | Browser test results |
+| `reports/live-junit.xml` | Live Bludit results |
+| `reports/bludit-compatibility.json` | Modelled variant results |
+| `reports/bludit-live-compatibility.json` | Live results (also in `docs/evidence/`) |
+| `reports/live-bludit-credentials.json` | Throwaway loopback credentials, git-ignored |
+| `reports/coverage/` | V8 coverage, with the caveat explained in `TEST_REPORT.md` |
+
+`reports/` is git-ignored build output. The two compatibility JSONs are copied to
+`docs/evidence/` because the documentation cites them.
+
+## 8. Note on unrelated resources
+
+A `docker ps` during this work shows five containers named `bwtest-*`
+(`bwtest-community-1` on 8081, `bwtest-pro-1` on 8082, `bwtest-subdir-1` on 8083,
+`bwtest-nokey-1` on 8084, `bwtest-mockai-1` on 8090). They belong to another
+project and were left untouched. The live test work here uses its own containers,
+`bludit-live-community` (8801) and `bludit-live-pro` (8802).

@@ -7,11 +7,12 @@ update their pages over OAuth 2.1 — with a review step before anything changes
 Runs on Cloudflare Workers. Streamable HTTP. No model of its own, no page content
 stored, no credentials in the clear.
 
-> **Status: pre-release.** The implementation and its test suite are complete
-> (263 tests passing). It has **not** been deployed, and it has **not** been
-> connected to a live Bludit site or used from a real MCP client. Both gaps are
-> stated plainly in [Verified vs. not](#verified-vs-not) and
-> [docs/TEST_REPORT.md](docs/TEST_REPORT.md). Nothing here claims otherwise.
+> **Status: pre-release, not deployed.** The implementation and its test suite are
+> complete: **357 tests passing**, including 24 against real Bludit Community and
+> real Bludit Pro 3.22.0 installations. It has **not** been deployed, and **no MCP
+> client product has been verified** against it. Both gaps are stated in
+> [Verified vs. not](#verified-vs-not) and in
+> [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). Nothing here claims otherwise.
 
 ## What it is
 
@@ -21,6 +22,7 @@ stored, no credentials in the clear.
 | Authorization | OAuth 2.1: Authorization Code + PKCE, refresh tokens, revocation, DCR, CIMD |
 | Platform | Cloudflare Workers, two Workers, D1 + KV |
 | Tools | 19 |
+| Rate limiting | D1-backed, on every public entry point |
 | Inference | none — this server calls no model |
 | Licence | MIT, derived from [`bludit/bludit-mcp`](https://github.com/bludit/bludit-mcp) |
 
@@ -141,10 +143,18 @@ one account from claiming a site that belongs to someone else.
 ```bash
 npm ci
 npm run typecheck
-npm test                     # 263 tests
-npm run test:browser         # Playwright, against the same in-process Workers
+npm test                     # 324 tests, hermetic: no network, no Docker, no credentials
+npm run test:browser         # 9 more, Playwright against the same in-process Workers
 npm run build:auth           # dry-run build, no network
 npm run build:mcp
+```
+
+Against real Bludit installations, using Docker only to host them:
+
+```bash
+PRO_ZIP=/path/to/bludit-pro-3.22.0.zip scripts/live-bludit-up.sh both
+npm run test:live            # 24 tests against the real CMS
+scripts/live-bludit-up.sh --down
 ```
 
 Local development with two Workers:
@@ -168,7 +178,7 @@ allowance. The arithmetic is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 This project takes the difference seriously.
 
-**Verified by automated tests** (263 tests, all passing):
+**Verified by automated tests** (357 tests, all passing):
 
 - The SSRF policy, including IPv4-mapped, NAT64, 6to4 and obfuscated literals.
 - Credit-card-style credential handling: encryption, additional-data binding,
@@ -181,15 +191,24 @@ This project takes the difference seriously.
   Wizard extension.
 - 19 tools end to end against a faithful mock of the Bludit 3.22.x API.
 - Both Workers under the production compatibility flag.
+- **14 operations against real Bludit Community 3.22.0 and real Bludit Pro
+  3.22.0**, including create, edit, and the full propose → preview → apply →
+  verify path, with a stale approval correctly refused.
+- **Community and Pro are byte-identical** in `bl-plugins/api/plugin.php` and every
+  kernel file the API depends on, so no feature is edition-gated.
 
 **Not verified, and not claimed:**
 
-- No live Bludit site has been connected. Every CMS result is against a mock
-  reproduced from the shipped API plugin source.
-- Bludit **Community** is assumed to ship the same API plugin as Pro. Only the Pro
-  build was available to inspect.
-- No real MCP client has been used.
+- No real MCP client product has been used. The protocol is proven by a
+  specification-following client in the harness; no product has been connected.
+- The live Bludit installations are loopback over plain http, so the production
+  SSRF policy and TLS are not exercised by them.
+- The Bludit Wizard PHP extension has not been live-tested.
 - Nothing has been deployed.
+
+Live testing earned its keep immediately: it found that Bludit sends `tags` as a
+comma-joined **string** rather than an array, which the mock had wrong and which
+made `search_pages` fail on a real site.
 
 [docs/TEST_REPORT.md](docs/TEST_REPORT.md) records the environment, commit,
 versions, measured results and limitations.
@@ -211,7 +230,7 @@ commit: [docs/UPSTREAM_COMPARISON.md](docs/UPSTREAM_COMPARISON.md).
 | Concurrency | none | revision identifiers, stale-approval rejection |
 | Review workflow | none | propose → preview → apply → verify |
 | Capability reporting | none | `get_site_capabilities` |
-| Tests | none | 263 |
+| Tests | none | 357 |
 
 The upstream stdio server is retained unchanged so existing users are not broken.
 
@@ -251,6 +270,9 @@ Summarised here; the full model, findings and accepted risks are in
 - Logs redact anything credential-shaped; errors never carry a secret.
 - **Page deletion is not exposed.** Bludit has no soft delete, so an
   agent-driven delete would be unrecoverable.
+- **Every public entry point is rate limited** — sign-in, authorization, token,
+  registration, pairing, connection and MCP requests — with counters that store no
+  IP address and no email address.
 - The repository contains no secret. `.dev.vars.example` has variable names and
   empty values only.
 
@@ -270,6 +292,9 @@ Report a vulnerability privately — see [docs/SECURITY.md](docs/SECURITY.md).
 | [CLIENT_COMPATIBILITY.md](docs/CLIENT_COMPATIBILITY.md) | How to verify an MCP client, and what is unverified |
 | [TEST_REPORT.md](docs/TEST_REPORT.md) | Measured results, environment, limitations |
 | [OPENAI_PUBLICATION_CHECKLIST.md](docs/OPENAI_PUBLICATION_CHECKLIST.md) | Publication readiness, test cases, remaining steps |
+| [PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) | Requirements with status and evidence |
+| [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | Current state, remaining risks, what the first deployment needs |
+| [DECISION_LOG.md](docs/DECISION_LOG.md) | Nineteen decisions with their reasons |
 
 ## Contributing
 

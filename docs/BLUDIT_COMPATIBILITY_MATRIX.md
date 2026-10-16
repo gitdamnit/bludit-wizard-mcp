@@ -1,187 +1,220 @@
 # Bludit compatibility matrix
 
-## Read this first
+## What is verified, and what is not
 
-**Every result below is mock-verified, not live-verified.** The MCP server was
-tested against a faithful re-implementation of the Bludit 3.22.x HTTP API
-(`test/harness/mock-bludit.ts`), written from the shipped API plugin source. No
-live Bludit installation — Community or Pro — has been connected to this server.
+Two kinds of evidence appear below, and they are kept strictly apart.
 
-That distinction matters, so it is stated in every table.
+| Evidence | What it means | Where it comes from |
+|---|---|---|
+| **Live-verified** | Tested against a real Bludit installation running real PHP, with real `.htaccess` routing and real page storage | `test/live/bludit-live.test.ts`, 24 tests, results in `reports/bludit-live-compatibility.json` |
+| **Modelled** | Tested against a faithful re-implementation of the Bludit HTTP API | `test/compat/bludit-editions.test.ts`, results in `reports/bludit-compatibility.json` |
 
-## What the mock is based on
+Live results are never inferred from modelled ones. Where only the modelled column
+exists for a row, it is marked as such.
 
-| | |
+## Editions: verified equivalent
+
+The earlier version of this document carried an unverified assumption that Bludit
+Community ships the same API plugin as Pro. **That is now verified**, by
+byte-comparison of both 3.22.0 source trees:
+
+| File | Community 3.22.0 vs Pro 3.22.0 |
 |---|---|
-| Package | `bludit-pro-3.22.0-20260510.zip` |
-| Build | Bludit PRO 3.22.0, build 20260510 |
-| Build commit | `d5612ed979eeb9ac222a2272aab0c8b97cc09826` |
-| Built | 2026-05-14 16:47:31 UTC |
-| Source read | `bl-plugins/api/plugin.php` (911 lines), `bl-kernel/pages.class.php`, `bl-kernel/pagex.class.php`, `bl-kernel/functions.php` |
-| Consumer | `wizard/plugin.php` from `bludit-wizard-1.0.4-rc1.zip`, which declares `compatible: "3.22"` |
+| `bl-plugins/api/plugin.php` | **identical** |
+| `bl-kernel/pages.class.php` | **identical** |
+| `bl-kernel/pagex.class.php` | **identical** |
+| `bl-kernel/functions.php` | **identical** |
+| `bl-kernel/security.class.php` | **identical** |
+| `bl-kernel/tags.class.php` | **identical** |
+| `bl-kernel/categories.class.php` | **identical** |
+| `bl-kernel/boot/variables.php` | **identical** |
+| `bl-kernel/user.class.php` | **identical** |
+| `bl-kernel/users.class.php` | **identical** |
 
-The mock reproduces the behaviours that matter: token placement per HTTP method,
-the `{status:"0"|"1"}` envelope alongside real HTTP status codes, the `type`
-filters, `numberOfItems: -1`, out-of-range pagination, and the fact that changing
-a page's slug moves it and therefore changes its key.
+26 entries differ across the whole tree, none of them on any code path this server
+exercises:
 
-## An assumption that has not been verified
+- Pro-only bundled plugins: `backup-manager`, `comments`, `domain-migrator`,
+  `gallery`, `timemachine-x`
+- A Pro-only theme, `newsroom`, and a Pro loader file, `bludit.pro.*.php`
+- Three unrelated plugin files: `admin/controllers/configure-plugin.php`,
+  `version/plugin.php`, `visits-stats/plugin.php`
+- Community-only repository furniture: `README.*.md`, `.github/`, `.gitignore`
 
-**Bludit Community 3.22.x is assumed to ship the same `bl-plugins/api` as Pro
-3.22.x.** That assumption was **not** verified: only the Pro build was available
-for inspection. No Community package was examined, and no live Community site was
-tested.
+**Conclusion:** for every endpoint the MCP server calls, Community and Pro 3.22.0
+are byte-identical code. The editions differ in bundled features, not in the API
+surface. No feature is gated by edition anywhere in this server, and a test
+asserts that Community and Pro produce identical tool behaviour.
 
-If Community's API plugin differs — a missing endpoint, a different envelope, a
-different default `numberOfItems` — the Community rows below would change. The
-tool surface is deliberately built so that a difference in capability shows up in
-`get_site_capabilities` rather than as a crash, but that is a design mitigation,
-not evidence.
+## Live results
 
-Confirming this requires one live Community install and one live Pro install. It
-is the single highest-value outstanding verification task for this project.
+Both installations were created by `scripts/live-bludit-up.sh` in disposable
+containers, installed through Bludit's own demo installer, and connected to the
+MCP server through the real pairing flow. Generated 2026-10-16.
 
-## Variants tested
+| | Community | Pro |
+|---|---|---|
+| Version | 3.22.0 | 3.22.0 |
+| Source | GitHub release tarball, tag `3.22.0` | release archive, build 20260510, commit `d5612ed979eeb9ac222a2272aab0c8b97cc09826` |
+| Capability: read | ✅ | ✅ |
+| Capability: authenticated (write) | ✅ | ✅ |
+| Wizard extension detected | ❌ absent (not installed) | ❌ absent (not installed) |
+| Declared edition recorded | `community` | `pro` |
+| Detected edition | `unknown` | `unknown` |
+| `list_pages` | ✅ | ✅ |
+| `get_page` | ✅ | ✅ |
+| `get_website_settings` | ✅ | ✅ |
+| `list_tags` | ✅ | ✅ |
+| `list_categories` | ✅ | ✅ |
+| `search_pages` | ✅ | ✅ |
+| `get_content_summary` | ✅ | ✅ |
+| `verify_page_update` | ✅ | ✅ |
+| `create_page` | ✅ | ✅ |
+| `edit_page` | ✅ | ✅ |
+| `propose_page_edit` | ✅ | ✅ |
+| `preview_page_changes` | ✅ | ✅ |
+| `apply_approved_edit` | ✅ | ✅ |
+| Stale approval | correctly refused with `revision_mismatch` | same |
 
-| # | Variant | Edition | Version | Wizard extension | API plugin |
+Also live-verified, outside the tool layer:
+
+- `tags` round-trips as a comma-joined **string**, and `pageTags()` normalises it.
+- A draft's tag is stored on the page and is **not** tag-indexed.
+- A published page's tag **is** tag-indexed.
+- A page's revision is stable across reads and changes on edit.
+- A missing page returns `not_found`; a traversal key is refused as `invalid_input`.
+- A wrong API token is refused as `site_auth_failed`.
+
+## Behaviours discovered by live testing
+
+These were not in any document before the first live run, and the mock had three
+of them wrong. All are now reproduced faithfully by the mock.
+
+### 1. `tags` is a string on the wire
+
+`Page::json()` calls `Page::tags(false)`, which returns `implode(',', $tags)`.
+The database stores an array; the HTTP API sends a comma-joined string.
+
+Consequences: reading `tags` as an array is a runtime error on a live site, and
+the tag list of every page is lost if it is discarded. Both were real bugs here;
+`pageTags()` now normalises it in one place, and `pageRevision()` uses the
+normalised form so a mock and a live site agree on a revision.
+
+### 2. `category` is `false` when there is no match
+
+`Page::category()` resolves the page's stored category key against the site's
+category list and returns `false` when it does not match — which includes a page
+stored with a category the site has never defined.
+
+Consequence: `category` must be treated as `string | false`, and the `category`
+argument on create/edit is effectively inert unless the category already exists.
+The tool description now says so.
+
+### 3. Only published, static and sticky pages are tag-indexed
+
+`$GLOBALS['DB_TAGS_TYPES'] = array('published','static','sticky')` in
+`bl-kernel/boot/variables.php`. `Tags::reindex()` skips every other type.
+
+Consequence: `list_tags` will not show a tag that exists only on a draft or a
+scheduled page. This is Bludit's rule, not an MCP limitation, and the tool
+description discloses it.
+
+## Modelled variants
+
+Retained because they cover feature combinations a live pair cannot cheaply
+produce.
+
+| # | Variant | Edition | Version | Wizard | API plugin |
 |---|---|---|---|---|---|
 | 1 | `community-3.22.0` | Community | 3.22.0 | absent | enabled |
 | 2 | `pro-3.22.0` | Pro | 3.22.0 | absent | enabled |
-| 3 | `pro-3.22.2` | Pro | 3.22.2 (patch) | absent | enabled |
+| 3 | `pro-3.22.2` | Pro | 3.22.2 | absent | enabled |
 | 4 | `pro-3.22.0-wizard` | Pro | 3.22.0 | **present** | enabled |
 | 5 | `community-api-disabled` | Community | 3.22.0 | absent | **disabled** |
 
-Variants 1–4 differ only in the modelled API surface each represents. Variant 5
-models a site where the administrator has not enabled the API plugin, which is the
-most common misconfiguration.
-
-Variants 3 models a later patch of the same line, to check that nothing in this
-server depends on version-specific behaviour. The API plugin's surface is
-identical across 3.22.x as far as the shipped builds show; this is asserted rather
-than assumed.
-
-## Results
-
-Measured by `test/compat/bludit-editions.test.ts`. Every run writes
-`reports/bludit-compatibility.json` (git-ignored build output); a copy of the run
-below is committed at
-[`docs/evidence/bludit-compatibility.json`](evidence/bludit-compatibility.json)
-so the table can be checked against its source. Generated 2026-10-16.
-
-`declared` is what the site owner entered when connecting the site. `detected` is
-what this server could verify independently.
-
-| | 1 community-3.22.0 | 2 pro-3.22.0 | 3 pro-3.22.2 | 4 pro-3.22.0-wizard | 5 community-api-disabled |
+| | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|
-| Declared edition recorded | community | pro | pro | pro | community |
-| Detected edition | unknown | unknown | unknown | unknown | unknown |
-| Capability: read OK | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Capability: authenticated OK | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Wizard extension detected | ❌ | ❌ | ❌ | ✅ | ❌ |
-| `list_pages` | success | success | success | success | `capability_unavailable` |
-| `get_page` | success | success | success | success | `not_found` |
-| `create_page` | success | success | success | success | `capability_unavailable` |
-| `edit_page` | success | success | success | success | `not_found` |
-| `propose_page_edit` + `apply_approved_edit` | success | success | success | success | `not_found` |
-| Verification | mock | mock | mock | mock | mock |
-| Live confirmation | **pending** | **pending** | **pending** | **pending** | **pending** |
+| Capability: read | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Capability: authenticated | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Wizard detected | ❌ | ❌ | ❌ | ✅ | ❌ |
+| `list_pages` | ✅ | ✅ | ✅ | ✅ | `capability_unavailable` |
+| `get_page` | ✅ | ✅ | ✅ | ✅ | `not_found` |
+| `create_page` | ✅ | ✅ | ✅ | ✅ | `capability_unavailable` |
+| `edit_page` | ✅ | ✅ | ✅ | ✅ | `not_found` |
+| propose + apply | ✅ | ✅ | ✅ | ✅ | `not_found` |
+| Live confirmation | **✅** | **✅** | ⚠️ modelled | ⚠️ modelled | ⚠️ modelled |
 
-## Confirmed differences
+Rows 1 and 2 are modelled *and* live-verified. Rows 3–5 are modelled only, and
+say so.
 
-### Community vs Pro: none observed
+The API-plugin-disabled row is worth reading carefully, because the error codes
+are deliberately different:
 
-For the same API surface, this server behaves identically on both editions. The
-only difference in the table is the edition the user declared. A test asserts this
-equality explicitly, so no feature is accidentally restricted to one edition.
-
-This is the expected result given that Pro 3.22.x ships the same API plugin, but
-it rests on the unverified assumption above.
-
-### With vs without the Wizard extension: one capability, no behaviour change
-
-Variant 4 differs from variant 2 in exactly one cell: the Wizard extension is
-detected. Every tool produces the same outcome. The extension is additive — it
-improves the site-connection proof and is reported by
-`get_site_capabilities`, and nothing in the core tool set depends on it.
-
-### API plugin disabled: actionable errors, not opaque failures
-
-Variant 5 is where the error handling earns its keep:
-
-| Call | Error code | Why that code |
-|---|---|---|
-| `list_pages` | `capability_unavailable` | A 404 on `/api/pages` means the plugin is off, not that a page is missing |
-| `create_page` | `capability_unavailable` | Same reason |
-| `edit_page` | `not_found` | Bludit returns 404 for a missing page, and the plugin's absence is indistinguishable from a missing page on that path |
-| `get_page` | `not_found` | Genuinely "no such page" |
-| `get_site_capabilities` | reports `reachable: false` with the reason | The point of the tool |
-
-A reviewer should note the honest asymmetry: `list_pages` and `create_page` can
-tell the two cases apart because those endpoints only exist when the plugin is
-enabled, while `edit_page` and `get_page` cannot, and therefore report `not_found`.
-`get_site_capabilities` is the tool that resolves the ambiguity, which is why it
-exists.
+- `list_pages` and `create_page` report `capability_unavailable`, because those
+  endpoints only exist when the plugin is enabled.
+- `edit_page` and `get_page` report `not_found`, because Bludit returns 404 for a
+  missing page and the plugin's absence is indistinguishable from one.
+- `get_site_capabilities` is the tool that resolves the ambiguity, which is why it
+  exists.
 
 ## Version coverage
 
 | Version | Status |
 |---|---|
-| 3.22.0 | Modelled from the shipped Pro build; mock-verified |
-| 3.22.x (later patches) | Modelled as behaviourally identical; mock-verified |
-| 3.22.x Community | **Assumed** identical to Pro; unverified |
-| Earlier than 3.22 | **Not supported.** The Wizard plugin declares `compatible: "3.22"`, and the API plugin surface this server targets is the 3.22 line. |
-| Later than 3.22 | Unknown. `get_site_capabilities` will report what it finds rather than assuming. |
+| 3.22.0 Community | **Live-verified** |
+| 3.22.0 Pro | **Live-verified** |
+| Later 3.22.x patches | Modelled as behaviourally identical. The API plugin surface is stable across the line as far as the shipped builds show, but this is not live-verified |
+| Earlier than 3.22 | **Not supported.** The Wizard plugin declares `compatible: "3.22"`, and the API surface targeted here is the 3.22 line |
+| Later than 3.22 | Unknown. `get_site_capabilities` reports what it finds rather than assuming |
 
 ## Operation coverage
 
-| Operation | Covered | Notes |
-|---|---|---|
-| Read site settings | ✅ | Requires an authenticated admin token; Bludit's own rule |
-| List / read pages | ✅ | Including drafts and scheduled pages |
-| Create page | ✅ | Including key derivation from the slug |
-| Edit page | ✅ | Including key change on slug change |
-| Propose + apply an edit | ✅ | Including stale-approval rejection |
-| Read tags and categories | ✅ | Official API only; the Wizard API has no equivalent |
-| Search | ✅ | Server-side only; Bludit has no search endpoint |
-| Create a **draft** specifically | ✅ | `type: "draft"` on create |
-| Image / file upload | ⚠️ **Not exposed** | The API supports it; no tool does. Out of scope, and no test |
-| Delete page | ⚠️ **Not exposed** | Policy decision, see `SECURITY.md` |
-| Edit site settings | ⚠️ **Not exposed** | The API supports `PUT /api/settings`; no tool does |
-| User listing | ⚠️ **Not exposed** | The API supports it; no tool does, and it is not even probed |
-| Install / upgrade / uninstall of the PHP plugin | ⚠️ **Not tested** | The plugin is not modified or installed by this project. Its `metadata.json` declares `compatible: "3.22"`; installation behaviour is the PHP project's own concern |
-| Custom fields (`custom`) | ⚠️ **Not exposed** | Readable through the API's page JSON; no tool surfaces them |
+| Operation | Live | Modelled | Notes |
+|---|---|---|---|
+| Read site settings | ✅ | ✅ | Needs an authenticated admin token; Bludit's rule |
+| List / read pages | ✅ | ✅ | |
+| Create page | ✅ | ✅ | Including key derivation from the slug |
+| Edit page | ✅ | ✅ | Including key change on slug change |
+| Drafts | ✅ | ✅ | |
+| Propose, preview, apply, verify | ✅ | ✅ | Including stale-approval refusal |
+| Tags and categories | ✅ | ✅ | Official API only; the Wizard API has no equivalent |
+| Search | ✅ | ✅ | Server-side only; Bludit has no search endpoint |
+| Scheduled pages | ❌ | ✅ | Reads modelled only; the live pages were published or drafts |
+| The Wizard extension installed | ❌ | ✅ | Needs the PHP plugin; its pairing endpoint is proposed, not implemented |
+| Image / file upload | ❌ | ❌ | Not exposed by any tool |
+| Delete page | ❌ | ❌ | Not exposed, by policy |
+| Site settings write | ❌ | ❌ | Not exposed |
+| User listing | ❌ | ❌ | Not exposed, and not probed |
+| Custom fields | ❌ | ❌ | Not exposed |
+| Plugin install / upgrade / uninstall | ❌ | ❌ | The PHP plugin's own concern |
 
-## Limitations of this matrix
+## Confirmed limitations
 
-1. **No live installation was connected.** The mock is a re-implementation. A
-   mock can agree with a misreading of the source.
-2. **The Community plugin source was not inspected.**
-3. **The PHP Wizard plugin was inspected at version 1.0.4-rc1**, which its own
-   metadata labels as a release candidate pending live validation. Its
-   `/api/wizard/*` behaviour is modelled from source, not observed.
-4. **The pairing endpoint `/api/wizard/pair` does not exist in PHP.** It is a
-   proposal in `PHP_WIZARD_INTEGRATION.md`. The Wizard pairing path is tested
-   against the mock's implementation of that proposed contract, so the test proves
-   the MCP side, not the PHP side.
-5. **Edition and version detection is not possible over HTTP.** Bludit exposes no
-   version or edition endpoint, so `detected` is always `unknown` and
-   `declared` is self-reported. This matrix therefore describes *modelled*
-   editions, not identified ones.
-6. **Only 3.22.x is in scope.** Nothing here claims support outside that line.
+1. **Edition and version cannot be detected over HTTP.** Bludit exposes no such
+   endpoint, so `detected` is always `unknown` and `declared` is self-reported.
+   Confirmed on both live editions.
+2. **`category` is inert unless the category exists.** See above.
+3. **Drafts and scheduled pages are not tag-indexed.** See above.
+4. **Bludit stores a page's `category` as a key, not a name.** The API returns the
+   name only on a successful lookup.
+5. **Loopback only.** Both live installations are on `127.0.0.1` over plain http,
+   reached through the development allowance. That is a real limitation of this
+   evidence: a remote installation over HTTPS is not covered by these runs, and
+   the production SSRF policy is what a remote one would exercise.
 
-## How to close the gaps
+## How to close the remaining gaps
 
-To turn this into a live-verified matrix:
+1. **A remote HTTPS installation.** Run `scripts/live-bludit-up.sh` locally and
+   expose it, or install Bludit on a host, then point the live suite at it by
+   editing `reports/live-bludit-credentials.json`. This exercises the production
+   SSRF policy and TLS.
+2. **Later 3.22.x patches.** Download the release, stage it as `site-pro` (or a
+   new edition name), and re-run the live suite.
+3. **The Wizard extension.** Install `bludit-wizard` into a live container, apply
+   the proposed `/api/wizard/pair` contract in PHP, and confirm the HMAC pairing
+   path against a real plugin rather than the mock.
+4. **Scheduled pages.** Create one with a future date on a live site and assert
+   `get_scheduled_pages`.
 
-1. Stand up a disposable Bludit Community 3.22.x and a disposable Bludit Pro
-   3.22.x, with different credentials.
-2. Connect each to a development deployment of this service.
-3. Run the same operation set as `test/compat/bludit-editions.test.ts` against
-   each, and record the results in a `live-verified` column.
-4. Diff the two editions' `get_site_capabilities` output. That is where a real
-   API-plugin difference would appear first.
-5. Install the Wizard plugin on one of them and repeat, to confirm the pairing
-   contract once it exists in PHP.
-
-Credentials for those sites must come through a secure configuration mechanism,
-must not be committed, and must not appear in any test log or report.
+Credentials for any of these must come through a secure configuration mechanism,
+must not be committed, and must not appear in a test log or a report.

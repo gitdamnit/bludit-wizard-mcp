@@ -19,6 +19,7 @@ Requirements were read from OpenAI's current documentation on 2026-10-16:
 | Plugin package structure | ✅ | — |
 | Manifest metadata and listing text | ✅ | placeholder URLs |
 | MCP server implementation | ✅ | not deployed |
+| Rate limiting on every public entry point | ✅ | — |
 | OAuth (CIMD + DCR) | ✅ | not deployed |
 | Domain-verification route | ❌ | not implemented; needs a deployment |
 | Privacy policy, support, terms | ❌ | portfolio site (separate objective) |
@@ -31,6 +32,7 @@ Requirements were read from OpenAI's current documentation on 2026-10-16:
 ## 1. Package
 
 - [x] `openai-plugin/plugin.json` — Agent Plugins manifest
+- [x] Rate limiting configured and verified (a review team will probe for it)
 - [x] `openai-plugin/mcp.json` — one remote MCP server, `streamable-http`
 - [x] `openai-plugin/skills/get-started/SKILL.md` — onboarding skill with a valid
       `name` and `description` in its YAML header

@@ -1,0 +1,15 @@
+# Only relevant if someone builds an image from the repository root, which the
+# live-test tooling does not: it builds from a generated context containing just
+# the staged Bludit tree. Kept small anyway so a stray `docker build .` is cheap.
+.git
+.github
+node_modules
+.wrangler
+.live-bludit
+reports
+docs
+test
+coverage
+*.md
+.dev.vars
+bludit.png
