@@ -276,7 +276,14 @@ describe('revocation and expiry', () => {
   });
 
   it('rejects a token that was never issued', async () => {
-    const result = await callTool(harness.mcp, 'bwpat_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'list_sites', {});
+    // A deliberately invalid fixture, named so that anyone grepping the archive
+    // for a token prefix can see at a glance that it is not a credential.
+    const result = await callTool(
+      harness.mcp,
+      'bwpat_NOT_A_REAL_TOKEN_aaaaaaaaaaaaaaaaaaaaaaaa',
+      'list_sites',
+      {}
+    );
     expect(result.status).toBe(401);
   });
 
