@@ -18,3 +18,9 @@ playwright-report/
 tools/live-bludit/site-community/
 tools/live-bludit/site-pro/
 review-artifacts/
+
+# Not part of this project. It appeared in the working tree during the session
+# and is not referenced by any source file, test or document. Listed here so a
+# `git add -A` cannot sweep it into a commit or into a review archive. Remove
+# this line if the file is meant to be part of the repository.
+bludit.png
