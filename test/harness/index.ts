@@ -15,6 +15,12 @@ export interface Harness {
   auth: WorkerHandle;
   mcp: WorkerHandle;
   server: TestHarness;
+  /**
+   * URL of the harness's real local HTTP server. Requests are dispatched to the
+   * first Worker whose configured routes match, or to the primary Worker (the
+   * authorization server) when none do — which makes it usable from a browser.
+   */
+  url: string;
   close(): Promise<void>;
 }
 
@@ -59,7 +65,7 @@ export async function startHarness(profile: HarnessProfile = 'runtime'): Promise
     ]
   });
 
-  await server.listen();
+  const { url } = await server.listen();
 
   // `createTestHarness` does not apply D1 migrations, so run the schema through
   // a test-only Worker that shares the same local database.
@@ -72,6 +78,7 @@ export async function startHarness(profile: HarnessProfile = 'runtime'): Promise
 
   return {
     server,
+    url: url.toString().replace(/\/+$/, ''),
     auth: server.getWorker('bludit-wizard-auth'),
     mcp: server.getWorker('bludit-wizard-mcp'),
     async close(): Promise<void> {

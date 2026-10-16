@@ -27,6 +27,7 @@
     "test:integration": "vitest run test/integration",
     "test:compat": "vitest run test/compat",
     "test:e2e": "vitest run test/integration test/compat",
+    "test:browser": "playwright test",
     "dev:auth": "wrangler dev --config wrangler.auth.jsonc --persist-to .wrangler/state",
     "dev:mcp": "wrangler dev --config wrangler.mcp.jsonc --persist-to .wrangler/state",
     "build:auth": "wrangler deploy --config wrangler.auth.jsonc --dry-run --outdir .wrangler/build/auth",
@@ -34,7 +35,7 @@
     "db:migrate:local": "wrangler d1 migrations apply bludit-wizard-mcp --config wrangler.auth.jsonc --local",
     "db:migrate:remote": "wrangler d1 migrations apply bludit-wizard-mcp --config wrangler.auth.jsonc --remote",
     "cf-typegen": "wrangler types --config wrangler.auth.jsonc worker-configuration.d.ts",
-    "verify": "npm run typecheck && npm run test",
+    "verify": "npm run typecheck && npm run test && npm run test:browser",
     "start:stdio": "node src/index.js"
   },
   "dependencies": {
@@ -46,6 +47,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261015.1",
+    "@playwright/test": "1.64.1",
     "@types/node": "24.19.2",
     "@vitest/coverage-v8": "4.1.12",
     "typescript": "5.9.3",

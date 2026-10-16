@@ -21,6 +21,14 @@ import { verifyCsrf } from './sessions.js';
 import type { AuthApp, AuthContext } from './types.js';
 
 export function registerSiteRoutes(app: AuthApp): void {
+  /**
+   * Every site route requires a signed-in account. Without this guard an
+   * unauthenticated request reached the handler and failed on `session.user`,
+   * returning a 500 instead of sending the visitor to sign in.
+   */
+  app.use('/sites', requireSession);
+  app.use('/sites/*', requireSession);
+
   app.get('/sites', async (c) => renderSitesPage(c));
 
   app.post('/sites/challenge', async (c) => {
@@ -133,6 +141,18 @@ export function registerSiteRoutes(app: AuthApp): void {
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Send an unauthenticated visitor to sign in, remembering where they were going.
+ * Applies to every `/sites` route, including the mutating ones.
+ */
+async function requireSession(c: AuthContext, next: () => Promise<void>): Promise<Response | void> {
+  if (!c.get('session')) {
+    const url = new URL(c.req.url);
+    return c.redirect(`/signin?next=${encodeURIComponent(`${url.pathname}${url.search}`)}`, 302);
+  }
+  await next();
+}
 
 function forbidden(): Response {
   return htmlResponse(renderPage({ title: 'Invalid request', body: '<p class="error">Invalid CSRF token. Reload and try again.</p>' }), 403);
