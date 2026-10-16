@@ -1,403 +1,267 @@
-# Hostinger hosting feasibility
+# Node port feasibility — can Bludit Wizard MCP run on Node.js hosting?
 
-**Question.** Can Bludit Wizard MCP run on an existing Hostinger plan, avoiding the
-Cloudflare Workers Paid subscription, without losing functionality?
+**Status: companion study, and a correction.** This document was first written before
+two facts were established elsewhere in this repository. Both are now known, and both
+change what this document is for:
 
-**Verdict.** It can run, but not by moving the code. The business logic ports; the
-**platform layer does not exist there and would have to be rebuilt**, including the
-security-critical authorization server. The saving is $5/month. The cost is a
-multi-week rewrite of the exact code path that keeps customer websites safe, plus
-rebuilding the 428-test suite that is the project's only evidence.
+1. **The Hostinger plan is Premium Web Hosting**, prepaid to roughly November 2029.
+   **Premium does not include Node.js.** Hostinger's Node.js web apps are available on
+   **Business** and **Cloud** plans only. So the Node port analysed here is *not
+   available on the existing plan at all* — not merely expensive. See
+   [hosting/HOSTINGER_ANALYSIS.md](hosting/HOSTINGER_ANALYSIS.md) (Study B).
+2. A **PHP adaptation** for Premium was analysed separately in
+   [hosting/PHP_ADAPTATION_ANALYSIS.md](hosting/PHP_ADAPTATION_ANALYSIS.md), which
+   concludes it is technically feasible but is "a second, security-critical codebase
+   … with no shared tests", and not justified as a way to avoid $5/month. That
+   document notes that "a Node port — if one is ever needed — reuses far more of the
+   existing code than PHP would."
 
-**Recommendation: keep Cloudflare Workers Paid at $5/month.** The cheapest *safe*
-option that preserves everything is the one already built. If $5/month must be
-avoided, the honest alternatives are in §11 — and the truly lowest-cost option today
-is to **not deploy at all**, because nothing requires a deployment until one real
-client has been verified.
+**This document quantifies that last claim.** It is the Node-port half of a comparison
+the PHP study only asserted, and it is the analysis any future move off Cloudflare —
+to Hostinger Business/Cloud, to a VPS, or to another Node host — would need.
 
-Research date: 2026-10-16. Sources are Hostinger's own documentation and support
-articles; cited inline. **Nothing was deployed, migrated, or purchased. No source
-code was changed by this investigation.**
+**No source code was changed by this investigation.** Nothing was deployed, migrated,
+or purchased.
 
-> Note on the brief: it cites 411 passing tests. The current figure is **428**
-> (395 hermetic, 24 against real Bludit, 9 in a browser). Two stale "411"
-> references remain in `README.md`; they are a documentation slip from an earlier
-> revision, not a change in results. Say the word and I will correct them.
+## 1. The correction, stated plainly
 
-## 1. Does Hostinger support the required runtime?
+My first version of this report said Node.js was available "if the plan is Business or
+Cloud" and listed a Node port as an option. That was honest but incomplete: it left
+open a question the user had already answered elsewhere. With Premium confirmed:
 
-Yes, on the right plan, with caveats that matter.
+| Route on the existing plan | Available? |
+|---|---|
+| Run the Cloudflare Workers implementation on Hostinger Premium | ❌ Wrong runtime |
+| Port to Node.js and run on Premium | ❌ **Premium has no Node.js** |
+| Port to PHP and run on Premium | ⚠️ Technically possible; see the PHP study |
+| Upgrade Premium → Business/Cloud for Node.js | 💰 Costs roughly what Cloudflare costs, so **no saving** |
 
-| Requirement | Hostinger | Verdict |
+So on the current plan there are exactly two candidates — a PHP rewrite, or nothing —
+and the Node analysis below is **conditional**: it matters if the plan changes, if the
+service ever moves to another Node host, or if the PHP port is weighed against one.
+
+## 2. What actually ports, module by module
+
+The finding worth keeping from the first version: the domain logic is genuinely
+portable, and that is a credit to how the code was written. It is plain TypeScript
+over `fetch` and WebCrypto — neither of which is Cloudflare-specific.
+
+| Module | Ports to Node? | Note |
 |---|---|---|
-| Node.js runtime | Business Web Hosting, Cloud Startup / Professional / Enterprise / Enterprise Plus. **Not** on Single or Premium | ✅ if the plan is Business or Cloud |
-| Node versions | 18.x, 20.x, 22.x, 24.x | ✅ 22 is our development version |
-| Custom framework | An **"Other"** type exists for apps without a detectable framework, where you supply an entry file and output directory | ✅ Hono fits |
-| HTTPS endpoint | Web hosting serves inbound HTTPS with free SSL | ✅ |
-| **Persistent process** | Server-side apps run a real process, with a **Restart** button in the dashboard | ⚠️ **but see below** |
-| Outbound HTTPS | cURL enabled by default; ports 80 and 443 open; Hostinger documents Node apps connecting to **Supabase** and **MongoDB Atlas** | ✅ |
-| Inbound long-lived connections | Web/Cloud allow only *outgoing* WebSocket connections; inbound sockets need a VPS | ✅ we need none |
-| Cron | Supported; "unlimited" on Cloud plans | ✅ |
-| Managed database | MySQL/MariaDB (150 databases on Business) | ⚠️ MySQL only, see §4 |
-| Root access, Docker, PM2 | **Not available** on Web/Cloud. VPS only | ❌ |
+| `src/bludit/*` — client, capabilities, types | ✅ **unchanged** | `fetch` + WebCrypto only |
+| `src/proposals/diff.ts` | ✅ unchanged | Pure functions |
+| `src/shared/crypto.ts` | ✅ unchanged | WebCrypto; Node 22 has it natively |
+| `src/shared/scopes.ts`, `html.ts`, `cookies.ts`, `redirect.ts`, `errors.ts`, `log.ts` | ✅ unchanged | Pure |
+| `src/mcp/routing.ts`, `server.ts`, `tools/*` (all 19) | ✅ bodies unchanged | The DB handle changes type |
+| `src/auth/app.ts`, `sites-ui.ts`, `tokens-ui.ts` — the whole UI | ✅ Hono runs on Node | But they call the Cloudflare OAuth library |
+| `src/shared/pats.ts` | ⚠️ DB adapter | Uses the `D1Database` interface |
+| `src/shared/rate-limit.ts` | ⚠️ DB adapter **and new SQL** | §4 |
+| `src/sites/*`, `src/proposals/store.ts`, `src/audit/*` | ⚠️ DB adapter | `D1Database` → MySQL |
+| `src/auth/accounts.ts`, `sessions.ts` | ⚠️ DB adapter | D1 → MySQL |
+| `src/shared/ssrf.ts` | ⚠️ needs a compensating control | §5 |
+| `src/auth/oauth.ts` | ❌ **must be replaced** | §3 — this is the crux |
+| `src/auth/index.ts`, `src/mcp/index.ts` | ❌ replaced | Two Worker entrypoints become one app |
+| `wrangler.*.jsonc`, `vitest.live.config.ts` harness | ❌ replaced | Hostinger app config; miniflare is Cloudflare-only |
+| `test/harness/*` and the **428 tests** built on it | ❌ rebuilt | §6 |
 
-Sources: [Node.js hosting options](https://www.hostinger.com/support/node-js-hosting-options-at-hostinger),
-[How to add a Node.js web app](https://www.hostinger.com/support/how-to-deploy-a-nodejs-website-in-hostinger),
-[Node.js overview](https://docs.hostinger.com/node.js/overview),
-[Web standards and connectivity](https://www.hostinger.com/support/which-web-standards-and-connectivity-features-are-supported-at-hostinger),
-[Parameters and limits](https://www.hostinger.com/support/6976044-parameters-and-limits-of-hosting-plans-in-hostinger/).
+**Roughly two thirds of the code is portable; the third that is not is the third that
+makes the service safe.** The PHP study said a Node port reuses far more than PHP
+would; this table is why, and it is a large margin — the PHP port rewrites all of
+`src/bludit/**` and `src/mcp/tools/**` as well, which the Node port does not.
 
-### Three caveats that change the design
+## 3. Replacing the Cloudflare OAuth provider — the crux
 
-**1. Applications run on demand and are stopped when idle.** Hostinger's own
-documentation: "After a period without incoming traffic, your app's process is
-stopped automatically to free up server resources. The next request … starts it
-again."
+`@cloudflare/workers-oauth-provider@1.2.3` imports `WorkerEntrypoint` from
+`cloudflare:workers` and stores clients, grants, authorization codes and tokens in a
+KV namespace hard-coded as `OAUTH_KV`. It exposes no storage adapter, and it cannot
+run on Node.
 
-Consequences: cold-start latency on the first MCP request; **no `setInterval`
-scheduling** — the cleanup job must become a cron trigger; and no in-memory
-state worth keeping (which we do not have, since the transport is stateless).
-
-**2. You cannot run `npm` over SSH.** "npm commands are run automatically when you
-deploy Node.js apps, but the command cannot be run through SSH… The npm build
-commands available to you are visible in the Build settings dropdown."
-
-Consequences: our project is TypeScript and needs a build. Either the build command
-we need happens to be in that dropdown, or we commit compiled JavaScript. The
-2-worker build (`build:auth`, `build:mcp`) has no equivalent — it becomes one app.
-
-**3. The application directory is replaced on every deploy.** "Files under
-`hbuilds/` and `public_html` are managed by the deployment system and are
-overwritten on every deployment. Manual edits … won't persist." Only the latest two
-successful versions are kept.
-
-Consequence: **a SQLite file inside the application directory is destroyed by the
-next deploy.** See §4.
-
-### Resource limits
-
-| Plan | CPU | RAM | IOPS | Processes (NPROC) | Databases |
-|---|---|---|---|---|---|
-| Business | 150% (≈2 cores on newer plans) | 1–3 GB | 1024 | 50 | up to 150 |
-| Cloud Startup | 200% | 3 GB | 2048 | 100 | 300 |
-| Cloud Professional+ | 300–800% | 4–10 GB | 2048–4096 | 100–200 | 300 |
-
-Compared with Cloudflare Workers: **128 MB of memory and 10 ms–30 s of CPU per
-invocation**, but no process cap and no IOPS ceiling of this kind. Our workload is
-small — a few D1 rows per tool call — so Hostinger's limits are not the blocker.
-The IOPS figure matters for §4.
-
-**One genuine Hostinger advantage:** there is no 10 ms CPU ceiling, so PBKDF2 at
-600,000 iterations — the reason Workers Paid is required — would run without
-complaint. That is the one constraint Hostinger lifts.
-
-## 2. Can the existing business logic be reused in Node.js?
-
-**Largely yes.** The bulk of the code is plain TypeScript over Web APIs that Node
-22 provides natively — `fetch`, `WebCrypto`, `Request`/`Response`/`Headers`,
-`crypto.getRandomValues`. This is exactly the portability the project was written
-for, and it is the strongest part of the news.
-
-| Module | Portable? | Note |
-|---|---|---|
-| `src/bludit/*` (client, capabilities, types) | ✅ as-is | `fetch` + WebCrypto only |
-| `src/proposals/diff.ts` | ✅ as-is | Pure functions |
-| `src/shared/ssrf.ts` | ⚠️ mostly | Needs a DNS-aware compensating control (§5) |
-| `src/shared/crypto.ts` | ✅ as-is | WebCrypto |
-| `src/shared/scopes.ts`, `html.ts`, `cookies.ts`, `redirect.ts`, `errors.ts`, `log.ts` | ✅ as-is | Pure |
-| `src/shared/pats.ts` | ⚠️ adapter | Uses the `D1Database` interface |
-| `src/shared/rate-limit.ts` | ⚠️ adapter | D1 UPSERT with `RETURNING` has no MySQL equivalent (§3) |
-| `src/mcp/tools/*` (all 19) | ✅ bodies | Tool logic unchanged; the DB handle changes type |
-| `src/mcp/routing.ts`, `server.ts` | ✅ as-is | |
-| `src/auth/accounts.ts`, `sessions.ts` | ⚠️ adapter | D1 → MySQL |
-| `src/auth/app.ts`, `sites-ui.ts`, `tokens-ui.ts` (the whole UI) | ✅ Hono runs on Node | But they call the Cloudflare OAuth library |
-| `src/auth/oauth.ts` | ❌ **must be replaced** | See §3 |
-| `src/auth/index.ts`, `src/mcp/index.ts` (Worker entrypoints) | ❌ replaced | Two apps become one |
-| `wrangler.*.jsonc` | ❌ replaced | Hostinger app configuration |
-| `test/harness/*` (mock Bludit, schema worker, `createTestHarness`) | ❌ replaced | The 428-test suite is built on miniflare and D1 |
-
-So: the domain logic is reusable, and the *platform integration* is not. That
-distinction is the whole finding.
-
-## 3. Replacing D1, KV, Service Bindings, and the OAuth provider library
-
-**D1 → MySQL.** Mechanical for most of the schema: `TEXT`/`INTEGER` map directly,
-`ON CONFLICT … DO UPDATE` becomes `INSERT … ON DUPLICATE KEY UPDATE`, and
-`db.batch()` becomes a transaction. Two genuine snags:
-
-- The rate limiter depends on `INSERT … ON CONFLICT … DO UPDATE … RETURNING count`
-  to read the counter back in one statement. MySQL has no `RETURNING`. It becomes
-  either two statements in a transaction or the `LAST_INSERT_ID(expr)` trick. Small
-  work, but it is the one place where correctness depends on the SQL dialect.
-- D1 is a single-writer SQLite database, which is what made the rate-limit counter
-  atomic and globally consistent. MySQL with InnoDB is also fine here, but the
-  reasoning recorded in ADR-011 would need restating for a different engine.
-
-**KV → MySQL.** KV is used only by the OAuth provider library, for clients,
-grants, authorization codes, refresh tokens and the token records themselves. It
-holds no application data. If the provider library is replaced, KV disappears
-entirely and grants become ordinary MySQL rows — which is arguably better, because
-revocation would then be immediate instead of eventually consistent.
-
-**Service Bindings → in-process calls.** This one gets *simpler*. The two Workers
-exist because Cloudflare Workers are separate deployment units; the binding is how
-the resource server asks the authorization server to validate a token. In a single
-Node process, `validateToken` becomes a direct function call and the binding
-disappears.
-
-But it is not free: **the trust boundary goes with it.** ADR-003 chose two Workers
-precisely so that a cross-tenant bug in tool handling could not mint a token, and a
-bug in consent could not read a page. On shared hosting there is one process, one
-`NODE_OPTIONS`, one filesystem, and no way to run the two roles as separately
-deployed units. The boundary survives as module structure, not as isolation. That is
-a real security regression and should be recorded as such, not glossed over.
-
-**`@cloudflare/workers-oauth-provider` → ? This is the crux.** The library is
-Cloudflare-specific: it takes a KV namespace, runs on the Workers runtime, and
-advertises itself as a Workers OAuth provider. It cannot run on Node.
-
-What it currently provides, all of which would have to be replaced:
+Everything it currently provides would have to be replaced:
 
 - RFC 8414 authorization server metadata and RFC 9728 protected resource metadata
 - Authorization Code with **PKCE `S256`**
-- **Dynamic Client Registration** (RFC 7591) and a registration-policy callback
-- **Client ID Metadata Documents**, including the `client_id_metadata_document_supported` advertisement that Claude, Codex and OpenCode look for
-- Token issuance, **refresh with rotation and idle expiry**, and RFC 7009 revocation
+- **Dynamic Client Registration** (RFC 7591), with the registration-policy callback
+- **Client ID Metadata Documents**, and the `client_id_metadata_document_supported`
+  advertisement that Claude, Codex and OpenCode look for
+- Token issuance, **refresh with rotation and idle expiry**, RFC 7009 revocation
 - Grant storage, consent transactions, remembered-consent cookies
-- RFC 8707 resource indicators, RFC 9207 `iss`, and audience binding
+- RFC 8707 resource indicators, RFC 9207 `iss`, audience binding
 
-The realistic replacement is **`oidc-provider` (Panva)**, a mature, widely deployed
-Node authorization server. It covers OAuth 2.1, PKCE, DCR, refresh rotation and
-revocation, and it takes an adapter you supply — so grants land in MySQL. It does
-**not** provide, and would need custom work:
+The realistic replacement is **`oidc-provider` (Panva)**, a mature Node authorization
+server covering OAuth 2.1, PKCE, DCR, refresh rotation and revocation, with an
+adapter you supply — so grants become MySQL rows. Three things it does **not** give
+away, each security-critical and each needing its own tests:
 
-- RFC 9728 protected-resource metadata and the `401` + `resource_metadata` challenge shape
-- **CIMD** (not an OIDC feature) and its advertisement
-- The MCP scope step-up behaviour, where a `403` names the complete required scope set
-- MCP-shaped error responses at the token endpoint
+- RFC 9728 protected-resource metadata and the `401` + `resource_metadata` challenge
+- **CIMD**, which is not an OIDC feature
+- The MCP `403` scope step-up, where one response names the **complete** required scope set
 
-That list is not large, but every item is security-critical protocol surface, and
-each would need tests before it could be trusted. Hand-rolling the provider instead
-is not advisable.
+Hand-rolling the provider instead is not advisable. This is the single most
+security-sensitive component in the project, and replacing its library is where the
+Node port's risk concentrates.
 
-## 4. SQLite, or another supported database?
+## 4. Replacing D1, KV, Service Bindings and SQLite
 
-**SQLite: not safely.** Two independent reasons.
+**D1 → MySQL.** Mechanical for most of the schema: `TEXT`/`INTEGER` map directly,
+`ON CONFLICT … DO UPDATE` becomes `INSERT … ON DUPLICATE KEY UPDATE`, `db.batch()`
+becomes a transaction. One genuine snag and one reasoning change:
 
-1. Hostinger's managed database is **MySQL**. There is no documented SQLite option
-   on Web/Cloud hosting.
-2. Even though Node 22 ships `node:sqlite`, **the application directory is replaced
-   on every deploy**, and only the two most recent builds are retained. A SQLite
-   file written beside the app would be destroyed on the next push — losing every
-   account, site connection, encrypted credential and audit row. A path outside
-   `hbuilds/` and `public_html` might survive, but Hostinger does not document one as
-   supported storage, and betting customer credentials on an undocumented path is
-   not a defensible design.
+- The rate limiter's `INSERT … ON CONFLICT … DO UPDATE … RETURNING count` reads the
+  counter back in a single atomic statement. **MySQL has no `RETURNING`.** It becomes
+  two statements in a transaction, or the `LAST_INSERT_ID(expr)` trick. Small, but it
+  is the one place where correctness is dialect-dependent.
+- D1 is single-writer SQLite, which is exactly what made that counter atomic and
+  globally consistent — the reasoning recorded in ADR-011. InnoDB is also fine here,
+  but that decision would need restating for a different engine rather than inherited.
 
-**MySQL: yes, and it fits the data well.** Every table is small and relational:
-`users`, `sessions`, `sites`, `pairing_challenges`, `proposals`, `audit_log`,
-`rate_limits`, `personal_access_tokens`. Credentials stay as AES-GCM ciphertext in a
-`TEXT` column, exactly as today. Row counts are trivial for a shared plan.
+**KV → MySQL.** KV is used *only* by the OAuth library, for clients, grants, codes and
+tokens. It holds no application data. Replace the library and KV disappears; grants
+become ordinary rows, which is arguably better because **revocation becomes immediate
+instead of eventually consistent**.
 
-**PostgreSQL via Supabase** is offered through Hostinger's Database Connect Wizard,
-and Supabase has a free tier — but that is a **second external provider** with its
-own account, its own free-tier limits, its own availability, and its own
-sub-processor to disclose. It would not be a simplification.
+**Service Bindings → in-process calls.** This gets simpler. The two Workers exist
+because Cloudflare Workers are separate deployment units; on one Node process
+`validateToken` is a direct function call and the binding disappears.
 
-One caution on MySQL here: shared plans publish an **IOPS ceiling (1024–4096)** and
-a low I/O throughput (3–6 MB/s) shared across the account. Our write volume is
-small, but a connection-per-request pattern without pooling would exhaust MySQL
-connections quickly. A pool is mandatory, not optional.
+**But the trust boundary goes with it.** ADR-003 chose two Workers so that a
+cross-tenant bug in tool handling could not mint a token, and a bug in consent could
+not read a page. One Node process means one runtime, one `NODE_OPTIONS`, one
+filesystem, and no way to deploy the two roles separately. The boundary survives as
+module structure, not as isolation. That is a real regression to record, not to
+gloss.
 
-## 5. Can OAuth 2.1, PKCE, revocation, PATs, isolation, the 19 tools and the controls be preserved?
+**SQLite: not safely, for two independent reasons.** Premium's managed database is
+MySQL; and Hostinger **replaces the application directory on every deploy**, keeping
+only the two most recent builds, so a database file written beside the app is
+destroyed on the next push. A path outside `hbuilds/` and `public_html` might
+survive, but it is not documented as supported storage and betting customer
+credentials on it is not defensible. `node:sqlite` being available in Node 22 does
+not help with either point.
 
-| Must preserve | Preservable? | How |
+## 5. The security control that has no equivalent
+
+Today the SSRF defence has four layers, and **layer one is the runtime**: the
+`global_fetch_strictly_public` compatibility flag makes workerd refuse to connect to
+private addresses. That is the layer that covers **DNS rebinding**, which no static
+check can.
+
+**No Node host provides an equivalent.** The remaining layers survive — URL policy,
+redirect revalidation, response bounds — but they check the *hostname*, not the
+*resolved address*. The compensating control on Node is a custom `lookup` on an
+undici `Agent` that rejects a private address **after** DNS resolution. That is
+implementable, and arguably stronger than the static check, but it is new
+security-critical code that does not exist yet and would need its own tests.
+
+`docs/SECURITY.md` currently describes layer one as the backstop. After any move off
+Cloudflare, that sentence stops being true, and the document would have to say so.
+
+## 6. Rebuilding the test suite
+
+The 428 tests are the project's only evidence, and they run on `createTestHarness`
+(miniflare) with a D1-backed schema worker. On Node:
+
+- Most **test bodies** survive; the **harness** does not.
+- `test/harness/schema-worker.ts` (D1), `mock-bludit.ts` (fine), the OAuth client
+  helper (fine), and `startHarness` all need a Node equivalent.
+- The live Bludit suite and the Playwright browser suite are the most portable,
+  because they already talk HTTP to a real server.
+- Anything asserting D1-specific SQL — the rate-limit counter, the PII-in-storage
+  checks — needs rewriting for MySQL.
+
+Until that is done, the port has **no automated proof that it preserves anything** —
+including the two safety invariants (no delete tool, review-before-write) that the
+current suite guards.
+
+## 7. Hostinger-specific constraints for a Node port
+
+Recorded for completeness, in case the plan ever changes to Business or Cloud.
+
+| Constraint | Source | Impact |
 |---|---|---|
-| OAuth 2.1 + PKCE `S256` | ✅ | `oidc-provider` |
-| Token refresh with rotation | ✅ | `oidc-provider` |
-| Token revocation | ✅ **improved** | MySQL row instead of eventually-consistent KV |
-| Dynamic Client Registration | ✅ | `oidc-provider` |
-| Client ID Metadata Documents | ⚠️ custom | Not an OIDC feature; must be implemented and advertised by hand |
-| RFC 9728 protected-resource metadata, `401` challenge | ⚠️ custom | Ours to implement |
-| Scope step-up `403` challenge | ⚠️ custom | Our own code, ported |
-| Personal access tokens | ✅ | Our own code, ported over a MySQL adapter |
-| Multi-user site isolation | ✅ | Same `WHERE user_id` predicates |
-| All 19 tools | ✅ | Unchanged |
-| No-delete-by-agent, review-before-write | ✅ | Pure logic, unchanged |
-| Credential encryption at rest | ✅ | WebCrypto; unchanged |
-| Rate limiting | ⚠️ rewritten | New SQL for MySQL; same buckets |
-| Audit logging | ✅ | Same rows |
-| **Platform-level SSRF backstop** | ❌ **lost** | No `global_fetch_strictly_public` equivalent |
-| **Process isolation between auth and resource roles** | ❌ **lost** | One process (§3) |
+| Node.js on Business/Cloud only | Hostinger | ❌ Premium excluded |
+| Node 18/20/22/24; "Other" framework type with an entry file | Hostinger | ✅ Hono fits |
+| Apps **stopped when idle**, restarted on next request | Hostinger | Cold starts; **no `setInterval`**, so cleanup must be cron |
+| **`npm` cannot be run over SSH**; build commands come from a dropdown | Hostinger | TypeScript must be built by a supported command, or output committed |
+| **App directory replaced on every deploy**, two versions kept | Hostinger | Rules out SQLite and any local state |
+| Only outgoing WebSocket connections; inbound sockets need a VPS | Hostinger | Not a blocker — our transport is request/response JSON |
+| Business: 150% CPU, 1–3 GB RAM, IOPS 1024, NPROC 50 | Hostinger | A single Node process fits; clustering would not |
+| Outbound ports open except 0 and 25; cURL enabled | Hostinger | ✅ outbound HTTPS to Bludit sites works |
+| Cron unlimited on Cloud | Hostinger | ✅ replaces the scheduled handler |
 
-### The two regressions worth weighing
+The one thing Hostinger would genuinely **improve**: there is no 10 ms CPU ceiling, so
+PBKDF2 at 600,000 iterations — the entire reason Workers Paid is required — would run
+without complaint.
 
-**SSRF loses its strongest layer.** Today the defence has four layers, and layer one
-is the runtime refusing to connect to private addresses — the layer that covers DNS
-rebinding, which no static check can. Hostinger offers no equivalent. The remaining
-layers (URL policy, redirect revalidation, response bounds) survive, but they check
-the *hostname*, not the *resolved address*. The compensating control on Node is a
-custom `lookup` on an undici `Agent` that rejects a private address after DNS
-resolution — implementable, and arguably stronger than the static check, but it is
-new security-critical code that does not exist yet and would need its own tests.
-`docs/SECURITY.md` currently describes layer one as the backstop; that would stop
-being true.
+## 8. Comparison for the Node port specifically
 
-**The two-Worker trust boundary collapses to module structure.** See §3.
-
-Neither is a reason the port is impossible. Both are reasons it is not a
-configuration change.
-
-## 6. What changing to a Hostinger subdomain would require
-
-1. **Confirm the plan.** Node.js needs **Business or Cloud**. On Premium or Single it
-   is unavailable, and upgrading to get it costs roughly what Workers Paid costs — so
-   the saving evaporates before any code is written. **Check this first.**
-2. **Restructure two Workers into one Node app.** One Hono app mounting both route
-   groups, served by `@hono/node-server` (or Express, which is on Hostinger's
-   supported list). Remove `WorkerEntrypoint`, the Service Binding, and the Wrangler
-   configs.
-3. **Rewrite the data layer** behind an interface with a MySQL implementation.
-4. **Replace the OAuth provider** with `oidc-provider` plus the MCP-specific work
-   from §5.
-5. **Replace the test harness.** The 428 tests run through `createTestHarness` and a
-   D1-backed schema worker. Those would need a Node equivalent — most test bodies
-   survive, the harness does not.
-6. **Add a cron for cleanup**, since `setInterval` cannot be relied on and the
-   process sleeps.
-7. **Commit compiled output or find a supported build command**, because `npm`
-   cannot be run manually.
-8. **Deploy by ZIP or GitHub**, accepting that the app directory is replaced each
-   time, and that no manual file edits persist.
-9. **Point a subdomain at it**, and set the issuer and resource identifiers to that
-   subdomain. Two roles in one app means **one origin**, which is simpler than the
-   current two-hostname `workers.dev` arrangement.
-10. **Add the DNS-aware SSRF control** to replace the lost platform layer.
-
-## 7. Restrictions that could make this impractical
-
-| Restriction | Impact | Blocking? |
+| | Cloudflare Workers Paid | Node on Hostinger Business/Cloud |
 |---|---|---|
-| Node.js only on Business/Cloud | If the plan is Premium or Single, there is nothing to save | ⚠️ check first |
-| No root, no Docker, no PM2 | No process manager, no custom runtime | Not blocking |
-| No `npm` over SSH | Requires a supported build command or committed build output | ⚠️ unverified whether a custom build command is allowed |
-| App directory replaced on deploy | Rules out SQLite and any local state | Not blocking (MySQL) |
-| Process stopped when idle | Cold starts; no `setInterval` | Not blocking |
-| IOPS 1024–4096, IO 3–6 MB/s | Shared ceiling; fine for our volume, needs pooling | Not blocking |
-| NPROC 50 (Business) | A single Node process fits; clustering would not | Not blocking |
-| Only one GitHub account per plan | Operational constraint | Not blocking |
-| No `global_fetch_strictly_public` equivalent | SSRF layer one lost; needs compensating code | ⚠️ real, manageable |
-| One process for both roles | Trust boundary becomes structural | ⚠️ real, accepted for a small deployment |
+| Monthly cost | **$5.00** | $0 *incremental* — but Premium has no Node, so an upgrade is needed and costs roughly the same |
+| Code change | **None** | Replace the OAuth server, the DB layer, the entrypoints and the test harness |
+| Tests preserved | **428 of 428** | Harness rebuilt first; the suite is the last thing to come back |
+| Security posture | Four SSRF layers, two-process boundary | Three SSRF layers until compensating code exists; one process |
+| Reversibility | Rollback in one command | Rewrite back, or keep both |
+| Performance | Global edge, no cold start for this workload | Single region, cold start after idle |
 
-Nothing here is a hard blocker. The combination is what makes the port a project
-rather than a migration.
+**The comparison that decides it is not $5 versus $0.** It is $5/month against
+rewriting the credential-minting path and the suite that guards it, in exchange for
+$60 a year.
 
-## 8. Comparison
+## 9. Recommendation
 
-| Dimension | Cloudflare Workers Paid | Hostinger (Business/Cloud) |
-|---|---|---|
-| **Monthly cost** | **$5.00** | $0 additional **if** the plan is Business/Cloud; otherwise an upgrade costs about the same |
-| **Engineering cost to switch** | **Zero.** Already built, tested, documented | Estimated tens of hours on the auth path alone, plus the test harness |
-| **Complexity** | Two Workers, one D1, one KV, one binding — all already working | One Node app, one MySQL database, a replaced OAuth server, a replaced test harness |
-| **Maintainability** | 428 tests, all hermetic except the live suite; CI typechecks, tests and builds both Workers | Tests must be rebuilt for the new runtime before they can guard anything again |
-| **Performance** | Global edge, ~2–15 ms CPU per request, no cold start for our workload | Single region, cold start after idle, 3–6 MB/s IO shared with the account |
-| **Security posture** | Four SSRF layers, two-process trust boundary, 10 ms CPU cap (the reason for $5) | Three SSRF layers unless compensating code is added, one process, no CPU cap |
-| **Reversibility** | Change nothing | Rewrite back, or keep both and pay twice |
-| **Risk to the 428 tests** | None | High — the harness they run on disappears |
-| **Blast radius of a mistake** | A Worker deploy, rolled back in one command | A shared hosting account holding credentials for customer websites |
+Unchanged from the first version, and now better supported: **keep Cloudflare Workers
+Paid at $5/month.**
 
-The last row is the one I would weigh most. The current design keeps customer
-Bludit credentials in a system with a documented rollback and a 30-day
-point-in-time recovery window on D1. Moving them to a shared hosting account does
-not obviously improve that, and the migration itself is when they are most exposed.
+On the evidence gathered across all of the `docs/hosting/` studies, the ranking is:
 
-## 9. What I could not verify
+1. **Stay on Cloudflare Workers Paid — $5/month.** Zero code change, all 428 tests
+   valid, the platform SSRF backstop intact, the two-process trust boundary intact,
+   one-command rollback. This is the cheapest *safe* option that preserves everything.
+2. **Do not deploy yet — $0.** Nothing requires a deployment until one real MCP client
+   has been verified. The hermetic suite, the live Bludit containers and the browser
+   suite all run free today. This is the true $0 option and it sacrifices only a public
+   URL.
+3. **PHP port on Premium — $0 incremental, high cost.** Per
+   [the PHP study](hosting/PHP_ADAPTATION_ANALYSIS.md): feasible, but a second
+   security-critical codebase, duplicating OAuth, sessions, crypto, tenancy, SSRF and
+   the Bludit client, with no shared tests.
+4. **Node port — not available on Premium.** Would require a plan upgrade that erases
+   the saving. Quantified above for any future Node host.
+5. **Rejected: Cloudflare Workers Free.** Two independent blockers, both already in
+   `docs/ARCHITECTURE.md`: PBKDF2 at 600,000 iterations cannot fit a 10 ms CPU
+   allowance, and Workers KV allows only **1,000 writes per day**, which one day of
+   OAuth grants and refreshes would exhaust.
 
-Stated plainly, because the recommendation depends on these:
+## 10. If a Node port is ever wanted anyway
 
-1. **Whether a custom build command is allowed.** Hostinger says build commands come
-   from a dropdown. If no TypeScript build is available, compiled output must be
-   committed, which is workable but ugly.
-2. **Whether outbound HTTPS to arbitrary third-party hosts is unrestricted in
-   practice.** The "only outgoing WebSocket connections" sentence sits under an "Are
-   sockets supported" heading and appears to describe raw TCP sockets, not HTTP. It
-   is corroborated as harmless by cURL being enabled by default, ports 80/443 being
-   open, and Hostinger's own Node-to-Supabase and Node-to-MongoDB-Atlas guides. I
-   would still confirm it with a two-minute smoke test before committing to
-   anything — deploy a Node app that fetches one external HTTPS URL and reads the
-   response.
-3. **Whether the on-demand process start introduces a latency that breaks an MCP
-   client's timeouts.** Plausible but unmeasured.
-4. **Whether there is any supported writable storage outside the app directory**, if
-   SQLite were ever preferred. Not documented.
-5. **The exact current plan and its renewal price.** Everything about cost turns on
-   this, and only the user can see it.
+Do not start with the rewrite. Do a spike that costs nothing and settles the unknowns:
 
-## 10. Recommendation
+1. On a Business/Cloud trial or an equivalent Node host, deploy a Hono app and confirm
+   the runtime, the entry-file model, and **whether a TypeScript build runs**.
+2. Have it fetch one external HTTPS URL — two minutes to settle outbound connectivity.
+3. Connect MySQL and run the exact `INSERT … ON DUPLICATE KEY UPDATE` pattern the rate
+   limiter needs.
+4. Measure cold-start latency after ten minutes idle.
+5. Only then scope the OAuth replacement, with its own decision-log entry and its own
+   approval gate.
 
-**Keep Cloudflare Workers Paid at $5/month.**
+## 11. Note on this document's provenance
 
-Not because it is the cheapest line on a bill — because it is the cheapest *safe*
-option. The comparison that matters is not $5 against $0; it is $5 against a
-multi-week rewrite of the authorization server, the loss of two security layers, and
-a rebuilt test suite — in exchange for **$60 a year**. The payback period, if the
-work were valued at even a modest hourly rate, is measured in years.
+The first version of this report was written without knowing the plan was Premium, and
+it listed a Node port as a live option. Corrected above.
 
-Concretely:
+Two further things the user should know, neither of them mine:
 
-1. **$5/month buys:** zero code change, all 428 tests still valid, the platform SSRF
-   backstop, the two-process trust boundary, and instant rollback.
-2. **Hostinger buys:** $60/year, and a platform rewrite whose hardest part is the
-   credential-minting path.
-3. **The thing that actually costs money is not the hosting.** It is the risk of
-   shipping a rebuilt authorization server without the tests that currently make it
-   trustworthy.
-
-### If $5/month is genuinely unacceptable
-
-Ranked, cheapest-and-safest first:
-
-1. **Do not deploy yet — $0.** Nothing requires a deployment until one real MCP
-   client has been verified end to end. Local development, the hermetic suite, the
-   live Bludit containers and the browser suite all run free, today. This is the true
-   lowest-cost option and it loses nothing except a public URL. *(Recommended if the
-   goal is "spend nothing now".)*
-2. **Keep Cloudflare at $5/month.** The recommendation above. *(Recommended if the
-   goal is "ship safely and soon".)*
-3. **Hostinger port, as a separately scoped project** — only if the plan is already
-   Business or Cloud, and only with the spike in §12 passing first. Expect the OAuth
-   replacement and the test-harness rebuild to be the bulk of the work, and accept
-   the two documented security regressions.
-4. **Rejected: Workers Free.** Two independent blockers, both already documented in
-   `docs/ARCHITECTURE.md`. PBKDF2 at 600,000 iterations cannot fit a 10 ms CPU
-   allowance, and Workers KV allows only **1,000 writes per day** on the free tier,
-   which one day of OAuth grants and refreshes would exhaust. Dropping passwords for
-   passkeys would fix the first and not the second.
-
-## 11. If the Hostinger route is chosen anyway
-
-Do not start with the rewrite. Start with a **one-day spike** that costs nothing and
-answers the five unknowns:
-
-1. On the actual plan, create a Node.js web app from a public GitHub repo.
-2. Confirm the Node 22 runtime, the "Other" framework type, and **whether a
-   TypeScript build command can be run**.
-3. Have the app fetch one external HTTPS URL and return the status — this settles
-   the outbound-connectivity question in two minutes.
-4. Connect it to a Hostinger MySQL database and run one `INSERT`, one `SELECT` and
-   the `INSERT … ON DUPLICATE KEY UPDATE` pattern the rate limiter needs.
-5. Measure cold-start latency after ten minutes idle.
-
-If all five pass, the port is worth scoping properly, with its own decision log
-entry and its own approval gate. If any fails, the answer is Cloudflare at $5.
-
-## 12. Bottom line
-
-The code is portable. **The platform is not.** Roughly two thirds of this codebase
-is plain TypeScript that would run on Node unchanged, and that is a credit to how it
-was written. The remaining third — the authorization server, the storage bindings,
-the request entrypoints and the test harness — is precisely the third that makes the
-service safe, and none of it transfers.
-
-$5/month is not the expensive part of this decision. Rewriting the authorization
-server without the 428 tests that currently guard it is.
+- **A concurrent session is working in this repository.** `docs/hosting/` contains six
+  studies (A–E plus the PHP adaptation) written by another process during this same
+  period. They are more complete than this document on the platform comparison and the
+  PHP route, and this document now cross-references them rather than competing.
+- **My commit `7b89401` accidentally included five of those files.** I ran `git add -A`
+  for the security-gate commit and swept in `CLOUDFLARE_FREE_ANALYSIS.md`,
+  `FREE_PLATFORM_COMPARISON.md`, `HOSTING_DECISION_MATRIX.md`, `HOSTINGER_ANALYSIS.md`
+  and `ZERO_COST_FEASIBILITY.md` before they were finished. That is the same mistake as
+  the earlier `bludit.png` incident, and it means those files carry my commit message
+  rather than their author's. `PHP_ADAPTATION_ANALYSIS.md` and the latest edits to
+  `HOSTINGER_ANALYSIS.md` remain uncommitted, as their author left them. **I have not
+  touched any of them**, and I would not rewrite history to fix the attribution without
+  explicit approval, because the other session is still writing.
