@@ -64,8 +64,14 @@ Say "verified against X on date Y", or say "not verified". Do not write "works
 with ChatGPT", "compatible with Bludit Community", or "supports Cursor" unless
 someone has actually connected that client, or that edition, and recorded the
 result. The compatibility documents exist to make the honest answer easy:
+[docs/CLIENT_COMPATIBILITY_MATRIX.md](docs/CLIENT_COMPATIBILITY_MATRIX.md),
 [docs/CLIENT_COMPATIBILITY.md](docs/CLIENT_COMPATIBILITY.md),
 [docs/BLUDIT_COMPATIBILITY_MATRIX.md](docs/BLUDIT_COMPATIBILITY_MATRIX.md).
+
+Corollary for client work: when you read a client's official documentation and it
+states a requirement, add a test that asserts this server meets it, and cite the
+URL. That is how the missing `destructiveHint` and the `Accept`-header refusal were
+found — both were invisible to every test that existed beforehand.
 
 Related: do not weaken a test to make it pass, and do not present a mock as a live
 system. The mock Bludit server exists so CMS behaviour can be tested at all; it is
@@ -110,6 +116,7 @@ Preserve attribution: upstream code stays upstream code, and the MIT notice in
 | `test/live/` | Real Bludit Community and Pro in containers. Opt-in, separate config, skips without credentials |
 | `test/harness/` | The mock Bludit server, the OAuth client, the schema worker |
 | `docs/` | Everything above |
+| `docs/clients/templates/` | Copyable per-client configuration templates. Never put a real token in one |
 
 Prefer small, independently testable modules. Several modules exist purely
 because their logic needed to be testable without a binding or a Worker
