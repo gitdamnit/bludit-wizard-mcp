@@ -1,34 +1,39 @@
 # Bludit Wizard MCP
 
-A universal remote MCP server for [Bludit CMS](https://www.bludit.com). Connect
-the Bludit websites you own to any MCP-compatible AI client, and read, draft and
-update their pages over OAuth 2.1 — with a review step before anything changes.
+An MCP server for [Bludit CMS](https://www.bludit.com), distributed as a **portable
+core** with three transports. Read, draft and update the pages on a Bludit site you
+own, from any MCP-compatible AI client — with a review step before anything changes.
 
-Runs on Cloudflare Workers. Streamable HTTP. No model of its own, no page content
-stored, no credentials in the clear.
+**The primary way to run it is locally, on your own computer.** No account, no hosted
+service, no OAuth server, no database, and nobody else to operate or pay for
+anything. The Cloudflare Workers transport still exists and is still supported; it
+is optional.
 
-> **Status: pre-release, not deployed.** The implementation and its test suite are
-> complete: **411 tests passing**, including 24 against real Bludit Community and
-> real Bludit Pro 3.22.0 installations. It has **not** been deployed, and **no MCP
-> client product has been verified** against it — twelve are researched from
-> official documentation and none is tested. Both gaps are stated in
-> [Verified vs. not](#verified-vs-not) and in
-> [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). Nothing here claims otherwise.
+Whoever you are, you are not dependent on the maintainer running a server: this is
+free and independently installable.
+
+> **Status: pre-release, not deployed, not published.** The local stdio edition is
+> implemented and its tests pass; see [Verified vs. not](#verified-vs-not) for the
+> exact numbers and for what has *not* been checked. The self-hosted HTTP transport
+> is **designed but not implemented**
+> ([docs/SELF_HOSTED_HTTP.md](docs/SELF_HOSTED_HTTP.md)). **No MCP client product
+> has been verified** against any transport — clients are researched from official
+> documentation and none is tested. Nothing here claims otherwise.
 
 ## What it is
 
 | | |
 |---|---|
-| Transport | MCP Streamable HTTP, stateless |
-| Authorization | OAuth 2.1: Authorization Code + PKCE, refresh tokens, revocation, DCR, CIMD |
-| Platform | Cloudflare Workers, two Workers, D1 + KV |
-| Tools | 19 |
-| Rate limiting | D1-backed, on every public entry point |
-| Inference | none — this server calls no model |
+| Transports | **stdio (primary)**, self-hosted Streamable HTTP *(designed, not built)*, Cloudflare Workers *(preserved)* |
+| Tools | 19, identical across transports, from one shared registry |
+| Local edition | one command, one site, no database, no account, no OAuth |
+| Authorization | not needed locally; OAuth 2.1 on the Cloudflare transport |
+| Inference | none — this server calls no model and stores no page content |
 | Licence | MIT, derived from [`bludit/bludit-mcp`](https://github.com/bludit/bludit-mcp) |
 
 ## Contents
 
+- [Quick start: local stdio](#quick-start-local-stdio)
 - [Architecture](#architecture)
 - [Tools](#tools)
 - [Connecting a client](#connecting-a-client)
@@ -41,6 +46,42 @@ stored, no credentials in the clear.
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [Licence and attribution](#licence-and-attribution)
+
+## Quick start: local stdio
+
+Node.js 20+ and a Bludit admin account. Full instructions, including the
+credential walkthrough and client configuration:
+**[docs/LOCAL_STDIO.md](docs/LOCAL_STDIO.md)**.
+
+```bash
+BLUDIT_URL=https://www.example.com \
+BLUDIT_API_TOKEN='from Admin → Plugins → API → Settings' \
+BLUDIT_AUTH_TOKEN='from Admin → Users → your user → Security' \
+npx bludit-wizard-mcp
+```
+
+Then point an MCP client at it — OpenCode, for example:
+
+```json
+{
+  "mcp": {
+    "bludit": {
+      "type": "local",
+      "command": ["npx", "-y", "bludit-wizard-mcp"],
+      "environment": {
+        "BLUDIT_URL": "https://www.example.com",
+        "BLUDIT_API_TOKEN": "{env:BLUDIT_API_TOKEN}",
+        "BLUDIT_AUTH_TOKEN": "{env:BLUDIT_AUTH_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+The process writes MCP protocol messages to stdout and every diagnostic to stderr,
+so a credential cannot end up in the protocol stream and a stray log line cannot
+corrupt it. Tokens without `BLUDIT_AUTH_TOKEN` make the site read-only, and the
+server says so on startup rather than failing later.
 
 ## Architecture
 
@@ -65,6 +106,37 @@ can only select among the caller's own sites.
 
 Full detail, including the cost estimate and why the Workers free tier is not
 enough: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+### The portable core, and the three transports
+
+The transport above is now one of three, and the pieces it shares with the others
+are extracted rather than duplicated:
+
+```
+        ┌────────────────────────────────────────────────┐
+        │  PORTABLE CORE   src/bludit · src/mcp/tools    │
+        │  19 tools · schemas · validation · safety rules │
+        │  SSRF policy · redaction · the Bludit client    │
+        └───────────────────────┬────────────────────────┘
+                                │  three ports:
+                                │  SiteSource · AuditSink · ProposalStore
+        ┌───────────────────────┼────────────────────────┐
+        ▼                       ▼                        ▼
+  A. stdio               B. self-hosted HTTP       C. Cloudflare
+  (primary)              (designed, not built)     (preserved, optional)
+  one site from config   SQLite · auth · HTTPS     two Workers · D1 + KV
+  in-memory proposals    run by the operator       OAuth 2.1 · D1-backed ports
+  audit on stderr        no maintainer involvement
+  no database, no account
+```
+
+The tools reach outward through exactly three ports and cannot tell which transport
+built the context they run under. That is what makes "the same 19 tools, with the
+same behaviour" a fact that is asserted in tests rather than a claim in a README —
+and it is why the local edition did **not** require rewriting a single tool.
+[`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md) records the extraction, including the
+measured fact that the local edition's runtime dependency graph is the MCP SDK, Zod
+and the Node standard library — no Cloudflare package at all.
 
 ## Tools
 
@@ -265,8 +337,13 @@ Summarised here; the full model, findings and accepted risks are in
 
 - Site credentials are AES-256-GCM encrypted with a Worker secret, with the site
   id as additional authenticated data. Plaintext exists only inside one request.
+  (The local edition stores no credentials at all — it reads them from
+  configuration per call, so there is nothing to encrypt.)
 - SSRF defence in four layers: the platform's `global_fetch_strictly_public`
   flag, a static URL policy, redirect revalidation, and response bounds.
+  **The platform layer exists only on Cloudflare.** The local edition has the other
+  three, and the documentation says so rather than implying uniformity — see
+  [docs/LOCAL_STDIO.md](docs/LOCAL_STDIO.md#7-security-honestly).
 - Every tool enforces its scopes server-side, twice — once in the HTTP pre-flight
   and once inside the tool.
 - Proposals are bound to an account and a site and pinned to a page revision.
@@ -285,6 +362,9 @@ Report a vulnerability privately — see [docs/SECURITY.md](docs/SECURITY.md).
 
 | Document | Contents |
 |---|---|
+| [LOCAL_STDIO.md](docs/LOCAL_STDIO.md) | **The local stdio edition**: install, configure, client setup, security tradeoffs, troubleshooting |
+| [REUSE_AUDIT.md](docs/REUSE_AUDIT.md) | What was reused, what was extracted into the core, what was deliberately not ported, and the measured dependency map |
+| [SELF_HOSTED_HTTP.md](docs/SELF_HOSTED_HTTP.md) | Design for the optional self-hosted HTTP transport — **not implemented** |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Topology, why two Workers, bindings, data model, threat model, cost |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Local development, resource creation, deployment order, approval gates |
 | [SECURITY.md](docs/SECURITY.md) | Security model, findings, accepted risks, remaining work |

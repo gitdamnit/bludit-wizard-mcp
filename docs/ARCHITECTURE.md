@@ -1,5 +1,15 @@
 # Architecture
 
+> **Scope note.** This document describes the **Cloudflare Workers transport**,
+> which is now one of three. The primary distribution is the local stdio edition
+> ([LOCAL_STDIO.md](./LOCAL_STDIO.md)); the self-hosted HTTP transport is designed
+> but not built ([SELF_HOSTED_HTTP.md](./SELF_HOSTED_HTTP.md)). All three share a
+> portable core — the Bludit client, the 19 tools, the validation and the safety
+> rules — extracted behind three ports (`SiteSource`, `AuditSink`,
+> `ProposalStore`). The extraction and its measured dependency map are recorded in
+> [REUSE_AUDIT.md](./REUSE_AUDIT.md). Everything below remains accurate for the
+> Cloudflare transport, which is preserved and unchanged in behaviour.
+
 ## Topology
 
 Two Workers, one shared D1 database, one KV namespace owned by the OAuth

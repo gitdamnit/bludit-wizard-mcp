@@ -27,11 +27,37 @@ function scrub(value: unknown, depth = 0): unknown {
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export function log(level: LogLevel, event: string, fields: Record<string, unknown> = {}): void {
-  const line = JSON.stringify({ level, event, ...(scrub(fields) as Record<string, unknown>) });
+/**
+ * Where a diagnostic line goes.
+ *
+ * Defaults to the console, which is right on Cloudflare Workers, where every
+ * `console.*` call is captured the same way.
+ *
+ * A stdio MCP server must change this: **stdout carries the MCP protocol stream and
+ * nothing else**, so a single stray `console.log` corrupts the session. The local
+ * entry calls `writeDiagnosticsToStderr()` before anything can log.
+ */
+let writeDiagnostic: (line: string, level: LogLevel) => void = (line, level) => {
   if (level === 'error') console.error(line);
   else if (level === 'warn') console.warn(line);
   else console.log(line);
+};
+
+export function setDiagnosticWriter(writer: (line: string, level: LogLevel) => void): void {
+  writeDiagnostic = writer;
+}
+
+export function writeDiagnosticsToStderr(): void {
+  setDiagnosticWriter((line) => {
+    // `process` does not exist in every runtime this code targets.
+    if (typeof process !== 'undefined' && process.stderr) process.stderr.write(`${line}\n`);
+    else console.error(line);
+  });
+}
+
+export function log(level: LogLevel, event: string, fields: Record<string, unknown> = {}): void {
+  const line = JSON.stringify({ level, event, ...(scrub(fields) as Record<string, unknown>) });
+  writeDiagnostic(line, level);
 }
 
 export const logger = {

@@ -8,7 +8,14 @@ export default defineConfig({
     environment: 'node',
     // Live tests need Docker and real credentials, so they are excluded here and
     // run from `vitest.live.config.ts`. The default suite stays hermetic.
-    include: ['test/unit/**/*.test.ts', 'test/integration/**/*.test.ts', 'test/compat/**/*.test.ts'],
+    include: [
+      'test/unit/**/*.test.ts',
+      'test/integration/**/*.test.ts',
+      'test/compat/**/*.test.ts',
+      // The local stdio edition. Hermetic, Node-only, no Miniflare: it drives the
+      // real MCP protocol against the real tools and a real HTTP Bludit API.
+      'test/local/**/*.test.ts'
+    ],
     testTimeout: 60_000,
     hookTimeout: 120_000,
     reporters: ['default', 'junit'],

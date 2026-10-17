@@ -1,44 +1,72 @@
 /**
  * Per-invocation tool context.
  *
- * Everything a tool is allowed to do is derived here from the *verified* token,
- * never from tool arguments:
+ * Everything a tool is allowed to do is derived from the *verified* token, never
+ * from tool arguments:
  *  - `userId` and `clientId` come from the validated access token.
  *  - `scopes` come from the token, and every tool re-checks its own scope.
- *  - The site lookup is scoped by `userId`, so a site id from another account
- *    is simply not found.
+ *  - The site lookup is scoped by `userId`, so a site id from another account is
+ *    simply not found.
  *
  * Tool arguments can therefore only ever select *which of this account's own
- * sites* to act on, never widen access.
+ * sites* to act on, never widen access. That is the hosted trust model.
+ *
+ * Since the portable-core extraction, the three things a tool needs from outside
+ * the process arrive through ports (`SiteSource`, `AuditSink`, `ProposalStore`)
+ * rather than through a D1 handle. The Cloudflare transport supplies D1-backed
+ * implementations, the local stdio transport supplies configuration- and
+ * memory-backed ones, and the tools cannot tell the difference. See `ports.ts` for
+ * why that is enough to share all nineteen tools.
+ *
+ * `requireToolScope` is deliberately still called by every tool even in a transport
+ * that grants every scope. A check that is vacuous locally costs nothing and means
+ * the same code is exercised in both places.
  */
 
-import { BluditClient } from '../../bludit/client.js';
 import type { AuthProps, McpEnv } from '../../shared/env.js';
 import { ToolError } from '../../shared/errors.js';
 import { hasScopes, scopesForTool } from '../../shared/scopes.js';
 import { urlPolicyFor } from '../../shared/policy.js';
-import { resolveSiteRow, toPublicSite, type PublicSite, type SiteRow } from '../../sites/registry.js';
-import { toBluditCredentials } from '../../sites/credentials.js';
-import { recordAudit } from '../../audit/log.js';
 import { errorSummary, logger } from '../../shared/log.js';
 import type { UrlPolicy } from '../../shared/ssrf.js';
+import { proposalTtlSeconds } from '../../proposals/store.js';
+import { d1AuditSink, d1ProposalStore, d1SiteSource } from './d1-ports.js';
+import type { AuditEntry, AuditSink, ProposalStore, ResolvedSite, SiteSource } from './ports.js';
+
+export type { AuditEntry, AuditSink, ProposalStore, ResolvedSite, SiteSource };
 
 export interface ToolContext {
-  env: McpEnv;
-  db: D1Database;
+  sites: SiteSource;
+  proposals: ProposalStore;
+  audit: AuditSink;
   userId: string;
   clientId: string;
   scopes: string[];
   props: AuthProps;
   policy: UrlPolicy;
+  /** Present only in the hosted adapter; the local transport has no database. */
+  db?: D1Database;
+  env?: McpEnv;
 }
 
-export function buildToolContext(env: McpEnv, props: AuthProps, auth: { scope: string[]; clientId?: string }): ToolContext {
+/**
+ * Build the context for the Cloudflare transport. Signature and behaviour are
+ * unchanged from before the extraction, so `src/mcp/app.ts` did not have to move.
+ */
+export function buildToolContext(
+  env: McpEnv,
+  props: AuthProps,
+  auth: { scope: string[]; clientId?: string }
+): ToolContext {
+  const clientId = auth.clientId ?? 'unknown';
   return {
-    env,
     db: env.DB,
+    env,
+    sites: d1SiteSource(env, props.userId),
+    proposals: d1ProposalStore(env.DB, props.userId, proposalTtlSeconds(env)),
+    audit: d1AuditSink(env.DB, props.userId, clientId),
     userId: props.userId,
-    clientId: auth.clientId ?? 'unknown',
+    clientId,
     scopes: auth.scope,
     props,
     policy: urlPolicyFor(env)
@@ -46,9 +74,9 @@ export function buildToolContext(env: McpEnv, props: AuthProps, auth: { scope: s
 }
 
 /**
- * Enforce a tool's scope on the server. This runs inside the tool callback as
- * well as in the HTTP pre-flight, so a bug in the pre-flight cannot silently
- * authorise a write.
+ * Enforce a tool's scope on the server. This runs inside the tool callback as well
+ * as in the HTTP pre-flight, so a bug in the pre-flight cannot silently authorise a
+ * write.
  */
 export function requireToolScope(ctx: ToolContext, tool: string): void {
   const needed = scopesForTool(tool);
@@ -60,18 +88,9 @@ export function requireToolScope(ctx: ToolContext, tool: string): void {
   }
 }
 
-export interface ResolvedSite {
-  row: SiteRow;
-  public: PublicSite;
-  client: BluditClient;
-}
-
 /** Resolve a site reference and build a client with freshly decrypted credentials. */
 export async function resolveSite(ctx: ToolContext, reference: string): Promise<ResolvedSite> {
-  const row = await resolveSiteRow(ctx.db, ctx.userId, reference);
-  const credentials = await toBluditCredentials(ctx.env, row.id, row.base_url, row);
-  const client = new BluditClient(credentials, { policy: ctx.policy });
-  return { row, public: toPublicSite(row), client };
+  return ctx.sites.resolve(reference);
 }
 
 /**
@@ -81,18 +100,7 @@ export async function resolveSite(ctx: ToolContext, reference: string): Promise<
  * would be dangerous, so the caller is asked to be explicit.
  */
 export async function defaultSite(ctx: ToolContext): Promise<ResolvedSite> {
-  const rows = await ctx.db
-    .prepare('SELECT * FROM sites WHERE user_id = ? AND status != ? ORDER BY label COLLATE NOCASE')
-    .bind(ctx.userId, 'disabled')
-    .all<SiteRow>();
-  const list = rows.results ?? [];
-  if (list.length === 0) throw new ToolError('not_found', 'This account has no connected Bludit sites yet.');
-  if (list.length > 1) {
-    throw new ToolError('ambiguous_site', 'Several sites are connected. Name one explicitly with the `site` argument.', {
-      available: list.map((row) => ({ id: row.id, label: row.label, baseUrl: row.base_url }))
-    });
-  }
-  return resolveSite(ctx, (list[0] as SiteRow).id);
+  return ctx.sites.default();
 }
 
 /** Resolve an explicit site, or fall back to the sole connected site. */
@@ -101,22 +109,8 @@ export async function siteFor(ctx: ToolContext, reference: string | undefined): 
   return defaultSite(ctx);
 }
 
-export interface AuditOptions {
-  tool: string;
-  outcome: 'ok' | 'denied' | 'error';
-  siteId?: string;
-  detail?: string;
-}
-
-export async function audit(ctx: ToolContext, options: AuditOptions): Promise<void> {
-  await recordAudit(ctx.db, {
-    userId: ctx.userId,
-    clientId: ctx.clientId,
-    siteId: options.siteId ?? '',
-    tool: options.tool,
-    outcome: options.outcome,
-    detail: options.detail ?? ''
-  });
+export async function audit(ctx: ToolContext, options: AuditEntry): Promise<void> {
+  await ctx.audit.record(options);
 }
 
 /**

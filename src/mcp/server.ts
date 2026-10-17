@@ -37,10 +37,19 @@ Page deletion is not available through this server.
 
 Never present a change as applied unless a tool result confirmed it with verified: true.`;
 
-export function createMcpServer(ctx: ToolContext): McpServer {
+/**
+ * Build a server over a context.
+ *
+ * `options.instructions` exists only because one sentence of the hosted
+ * instructions is untrue locally: with a single configured site the `site` argument
+ * can never be ambiguous, and proposals live in memory rather than in D1. The
+ * difference is a string, not a code path — the tools are registered identically
+ * either way.
+ */
+export function createMcpServer(ctx: ToolContext, options: { instructions?: string } = {}): McpServer {
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { capabilities: { tools: {} }, instructions: INSTRUCTIONS }
+    { capabilities: { tools: {} }, instructions: options.instructions ?? INSTRUCTIONS }
   );
   registerTools(server, ctx);
   return server;

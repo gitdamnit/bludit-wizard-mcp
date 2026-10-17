@@ -1,5 +1,40 @@
 # Security
 
+## How these controls map to the three transports
+
+This document describes the hosted Cloudflare deployment. Since the migration to a
+portable core, three transports share the same tool layer, and **not every control
+below applies to all of them**. Reading a control here as universal would be a
+mistake, so the mapping is stated once, up front.
+
+| Control | stdio (primary) | Self-hosted HTTP | Cloudflare |
+|---|---|---|---|
+| No delete tool | yes | yes | yes |
+| Review-before-write (`propose_page_edit` → `apply_approved_edit`, revision pin, `confirm: true`) | yes | yes | yes |
+| Every write verified by reading the page back | yes | yes | yes |
+| Credential redaction in logs, errors, tool results | yes | yes | yes |
+| URL policy, redirect revalidation, response bounds | yes | yes | yes |
+| Platform private-address refusal (`global_fetch_strictly_public`) | **no** | **no** | yes |
+| DNS-rebinding coverage | **no** | **reduced, see `SELF_HOSTED_HTTP.md` §7.2** | yes |
+| Credentials encrypted at rest | **n/a — never stored** | yes (planned) | yes |
+| Scope enforcement | **vacuous** — one principal, so it cannot fail | yes | yes |
+| Rate limiting | **n/a** — no anonymous traffic | yes (planned) | yes |
+| Tenancy isolation | **n/a** — one tenant | n/a for single-user; designed for | yes |
+| Attack surface | none; a local process, not a sandbox | public URL | public URL |
+
+Two consequences worth being explicit about:
+
+- **A local MCP process is not a security sandbox.** It runs with the operator's own
+  privileges. Nothing in this document changes that, and the setup guide says so.
+- **The strongest SSRF layer is a platform feature, not ours.** It is absent
+  everywhere except Cloudflare. Application-level checks narrow the gap; they do not
+  close it, and no claim here should be read as saying they do. Decision D-0006 in
+  [`../DECISION_LOG.md`](../DECISION_LOG.md) records why this is documented per
+  transport rather than papered over.
+
+The local edition's full posture, including the credential-security tradeoffs the
+operator is accepting, is in [LOCAL_STDIO.md](./LOCAL_STDIO.md#7-security-honestly).
+
 ## Reporting
 
 Open a GitHub security advisory on the repository, or email the maintainer. Do

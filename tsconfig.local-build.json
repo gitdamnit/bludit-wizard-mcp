@@ -1,0 +1,35 @@
+{
+  /**
+   * Build configuration for the local stdio edition.
+   *
+   * The default `tsconfig.json` is `noEmit` because the Cloudflare Worker is
+   * bundled by wrangler. The local edition is a plain Node program that has to be
+   * importable by `node`, so this project emits ESM JavaScript for it.
+   *
+   * `module: NodeNext` matters: it keeps the explicit `.js` specifiers the sources
+   * already use, so the emitted tree resolves under Node's real ESM loader rather
+   * than only under a bundler.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node", "@cloudflare/workers-types"],
+    "declaration": false,
+    "sourceMap": false,
+    "removeComments": false
+  },
+  "include": [
+    "src/bludit/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/proposals/**/*.ts",
+    "src/sites/**/*.ts",
+    "src/audit/**/*.ts",
+    "src/mcp/**/*.ts",
+    "src/local/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "test", "scripts"]
+}

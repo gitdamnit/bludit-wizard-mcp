@@ -24,13 +24,7 @@ import { pageCategory, pageRevision, pageTags } from '../../bludit/client.js';
 import type { BluditPage, BluditWriteFields } from '../../bludit/types.js';
 import { ToolError } from '../../shared/errors.js';
 import { diffFields, diffText } from '../../proposals/diff.js';
-import {
-  assertProposalApplicable,
-  createProposal,
-  getProposal,
-  markProposalApplied,
-  proposalTtlSeconds
-} from '../../proposals/store.js';
+import { assertProposalApplicable } from '../../proposals/store.js';
 import { requireToolScope, siteFor, withAudit, type ToolContext } from './context.js';
 import { assertWritable, pickWriteFields, type WriteFieldsInput } from './write-helpers.js';
 
@@ -209,14 +203,12 @@ export function registerWriteTools(server: McpServer, ctx: ToolContext): void {
             preview = { pageKey: key, planned: fields };
           }
 
-          const proposal = await createProposal(ctx.db, {
-            userId: ctx.userId,
+          const proposal = await ctx.proposals.create({
             siteId: resolved.row.id,
             pageKey: key,
             baseRevision,
             operation: args.operation,
-            payload: fields as Record<string, unknown>,
-            ttlSeconds: proposalTtlSeconds(ctx.env)
+            payload: fields as Record<string, unknown>
           });
 
           return {
@@ -229,7 +221,7 @@ export function registerWriteTools(server: McpServer, ctx: ToolContext): void {
               pageKey: key,
               baseRevision,
               expiresAt: new Date(proposal.expiresAt).toISOString(),
-              ttlSeconds: proposalTtlSeconds(ctx.env),
+              ttlSeconds: ctx.proposals.ttlSeconds(),
               preview,
               note: `Nothing has been written. Apply with apply_approved_edit and proposal_id "${proposal.id}" before it expires.`
             }
@@ -304,7 +296,7 @@ export function registerWriteTools(server: McpServer, ctx: ToolContext): void {
         withAudit(ctx, 'apply_approved_edit', async () => {
           requireToolScope(ctx, 'apply_approved_edit');
           const resolved = await siteFor(ctx, site);
-          const proposal = await getProposal(ctx.db, ctx.userId, resolved.row.id, proposal_id);
+          const proposal = await ctx.proposals.get(resolved.row.id, proposal_id);
 
           // Read the live state the proposal must still agree with.
           let currentRevision: string | undefined;
@@ -334,7 +326,7 @@ export function registerWriteTools(server: McpServer, ctx: ToolContext): void {
 
           // Claim the proposal before writing so two concurrent applies cannot
           // both proceed. If the write then fails, release the claim.
-          const claimed = await markProposalApplied(ctx.db, proposal.id, ctx.clientId);
+          const claimed = await ctx.proposals.claim(proposal.id, ctx.clientId);
           if (!claimed) {
             throw new ToolError('conflict', 'This proposal is already being applied or has been applied.', {
               proposalId: proposal.id
@@ -370,10 +362,7 @@ export function registerWriteTools(server: McpServer, ctx: ToolContext): void {
             };
           } catch (error) {
             // Release the claim so the proposal can be retried or rejected.
-            await ctx.db
-              .prepare(`UPDATE proposals SET status = 'proposed', applied_at = NULL WHERE id = ? AND status = 'applied'`)
-              .bind(proposal.id)
-              .run();
+            await ctx.proposals.release(proposal.id);
             throw error;
           }
         })

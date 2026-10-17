@@ -1,15 +1,16 @@
 /**
  * Site-level tools.
  *
- * These are deterministic transformations over this service's own data
- * (the D1 site registry) and its capability cache. They never mutate a Bludit
- * site.
+ * These are deterministic transformations over this service's own data — the
+ * connected-site records and the cached capability probe, both reached through the
+ * `SiteSource` port so the hosted and local transports share them. They never
+ * mutate a Bludit site.
  */
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { detectCapabilities } from '../../bludit/capabilities.js';
-import { parseCapabilities, updateSiteCapabilities } from '../../sites/registry.js';
+import { parseCapabilities } from '../../sites/registry-helpers.js';
 import { requireToolScope, resolveSite, siteFor, withAudit, type ToolContext } from './context.js';
 import { toResult } from './result.js';
 
@@ -32,12 +33,12 @@ export function registerSiteTools(server: McpServer, ctx: ToolContext): void {
       toResult(() =>
         withAudit(ctx, 'list_sites', async () => {
           requireToolScope(ctx, 'list_sites');
-          const rows = await ctx.db
-            .prepare('SELECT * FROM sites WHERE user_id = ? AND status != ? ORDER BY label COLLATE NOCASE')
-            .bind(ctx.userId, 'disabled')
-            .all<{ id: string; label: string; base_url: string; edition: string; status: string; last_error: string; capabilities_json: string; wizard_api_base: string; wizard_api_key_enc: string; created_at: number; last_checked_at: number }>();
+          // Through the port, so the Cloudflare transport lists D1 rows and the
+          // local transport lists the single site it was configured with. The
+          // response shape below is identical either way.
+          const rows = await ctx.sites.list();
 
-          const sites = (rows.results ?? []).map((row) => ({
+          const sites = rows.map((row) => ({
             id: row.id,
             label: row.label,
             baseUrl: row.base_url,
@@ -120,7 +121,7 @@ export function registerSiteTools(server: McpServer, ctx: ToolContext): void {
             capabilities = await detectCapabilities(resolved.client, {
               declaredEdition: editionOf(resolved.row.edition)
             });
-            await updateSiteCapabilities(ctx.db, ctx.userId, resolved.row.id, capabilities);
+            await ctx.sites.updateCapabilities(resolved.row.id, capabilities);
           }
 
           return {

@@ -3,11 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Universal remote MCP server for Bludit CMS: Streamable HTTP with OAuth 2.1, on Cloudflare Workers. Derived from bludit/bludit-mcp (MIT).",
+  "description": "MCP server for Bludit CMS, distributed free: a portable core with a local stdio edition (primary) and a preserved Cloudflare Workers transport. Derived from bludit/bludit-mcp (MIT).",
   "license": "MIT",
   "engines": {
     "node": ">=20"
   },
+  "bin": {
+    "bludit-wizard-mcp": "dist/local/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "docs/LOCAL_STDIO.md",
+    "docs/SECURITY.md"
+  ],
   "contributors": [
     {
       "name": "Diego Najar",
@@ -26,6 +37,7 @@
     "test:unit": "vitest run test/unit",
     "test:integration": "vitest run test/integration",
     "test:compat": "vitest run test/compat",
+    "test:local": "vitest run test/local",
     "test:live": "vitest run --config vitest.live.config.ts",
     "live:up": "scripts/live-bludit-up.sh",
     "live:down": "scripts/live-bludit-up.sh --down",
@@ -40,6 +52,9 @@
     "db:migrate:remote": "wrangler d1 migrations apply bludit-wizard-mcp --config wrangler.auth.jsonc --remote",
     "cf-typegen": "wrangler types --config wrangler.auth.jsonc worker-configuration.d.ts",
     "verify": "npm run typecheck && npm run test && npm run test:browser",
+    "build:local": "tsc -p tsconfig.local-build.json",
+    "start:local": "npm run build:local && node dist/local/index.js",
+    "prepack": "npm run build:local",
     "start:stdio": "node src/index.js"
   },
   "dependencies": {
@@ -63,6 +78,9 @@
     "model-context-protocol",
     "bludit",
     "cms",
+    "stdio",
+    "local-first",
+    "self-hosted",
     "cloudflare-workers",
     "oauth",
     "remote-mcp",
