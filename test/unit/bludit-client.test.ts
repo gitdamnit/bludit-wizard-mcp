@@ -157,6 +157,19 @@ describe('envelope and status interpretation', () => {
     await expect(client.listPages({})).rejects.toMatchObject({ code: 'upstream_error' });
   });
 
+  it('refuses a 200 response whose body is not JSON instead of reporting an empty result', async () => {
+    const { client } = clientWith(
+      () => new Response('<!doctype html><title>maintenance</title>', { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+    await expect(client.listPages({})).rejects.toMatchObject({ code: 'upstream_error' });
+  });
+
+  it('still accepts an empty 200 body', async () => {
+    const { client } = clientWith(() => new Response('', { status: 200 }));
+    const result = await client.listPages({});
+    expect(result.data).toBeUndefined();
+  });
+
   it('never echoes a token found in an upstream message', async () => {
     const { client } = clientWith(() =>
       jsonResponse({ status: '1', message: 'bad token=API-TOKEN&authentication=AUTH-TOKEN' })

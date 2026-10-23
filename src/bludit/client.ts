@@ -28,6 +28,23 @@ import type {
   WizardSiteInfo
 } from './types.js';
 
+/**
+ * Reject a success response whose body is not JSON.
+ *
+ * A host can answer an API call with an HTML error page or a truncated body while
+ * still returning 200. Treating that as `{}` would report an empty page list as a
+ * success, which is a silent false negative; a clear upstream error is honest and
+ * retryable. An empty body is still allowed, because some endpoints legitimately
+ * return none.
+ */
+function assertJsonBody(response: { status: number; text: string; json: unknown }): void {
+  if (response.text.trim() !== '' && response.json === null) {
+    throw new ToolError('upstream_error', 'The Bludit site returned a response that is not valid JSON.', {
+      httpStatus: response.status
+    });
+  }
+}
+
 export interface BluditCredentials {
   /** Normalized site base URL, no trailing slash. */
   baseUrl: string;
@@ -192,6 +209,7 @@ export class BluditClient {
       });
     }
 
+    assertJsonBody(response);
     return envelope;
   }
 
@@ -314,6 +332,7 @@ export class BluditClient {
         httpStatus: response.status
       });
     }
+    assertJsonBody(response);
     return (response.json ?? {}) as T;
   }
 
