@@ -16,9 +16,9 @@ documents remain under `docs/`.
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
 - **Observed branch:** feat/local-stdio-edition
-- **Observed commit:** a8efd684361a4b092655a2313428e360bd27e877
-- **Observed working tree:** dirty
-- **Observed at:** 2026-10-23T20:26:52Z
+- **Observed commit:** 0bf36c5c5d77d111adbdf887bf30356bcc916276
+- **Observed working tree:** clean
+- **Observed at:** 2026-10-23T20:26:58Z
 <!-- prodoc:observed:end -->
 
 Work happened in a dedicated Git worktree at
