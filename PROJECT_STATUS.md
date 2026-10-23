@@ -15,10 +15,10 @@ documents remain under `docs/`.
 
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
-- **Observed branch:** feat/local-stdio-edition
-- **Observed commit:** 0bf36c5c5d77d111adbdf887bf30356bcc916276
-- **Observed working tree:** clean
-- **Observed at:** 2026-10-23T20:26:58Z
+- **Observed branch:** main
+- **Observed commit:** 7bfc3caede4678fe8a58fae42501731f022a6d45
+- **Observed working tree:** dirty
+- **Observed at:** 2026-10-23T20:29:04Z
 <!-- prodoc:observed:end -->
 
 Work happened in a dedicated Git worktree at
@@ -67,6 +67,13 @@ session. See decision D-0012.
   reports version 1.0.0 and advertises all nineteen tools over stdio. Evidence
   `reports/junit.xml`, `reports/live-junit.xml`, `reports/playwright-junit.xml`,
   `docs/RELEASE_NOTES_v1.0.0.md`.
+- **Verification:** commit `7bfc3ca` (tag `v1.0.0`) — the published GitHub release
+  asset was downloaded from the release URL, its SHA-256 matched
+  `4b0d1979f2be98f6937a3b68af19f9b18537ee26680ae048d643bc8b0dcf87e5`, and a clean
+  `npm install --prefix` of that download reports version 1.0.0 and advertises all
+  nineteen tools over stdio. The release repository clone is at the tag, is public,
+  and contains no credentials. Evidence:
+  <https://github.com/gitdamnit/bludit-wizard-mcp/releases/tag/v1.0.0>.
 
 ## Completed Work
 
@@ -186,6 +193,7 @@ bugs later:
 - GitHub repository: <https://github.com/gitdamnit/bludit-wizard-mcp>
 - Release: <https://github.com/gitdamnit/bludit-wizard-mcp/releases/tag/v1.0.0>
 - Package asset: `bludit-wizard-mcp-1.0.0.tgz`
+  (SHA-256 `4b0d1979f2be98f6937a3b68af19f9b18537ee26680ae048d643bc8b0dcf87e5`)
 - Licence: GPL-3.0-only, upstream MIT notice retained.
 - npm registry: **not published**; `private: true` retained (D-0010).
 
