@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "bludit-wizard-mcp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Read and update pages on Bludit CMS websites you connect to your own account.",
   "author": {
     "name": "Evan Zellner",
@@ -9,8 +9,14 @@
   },
   "homepage": "https://example.com/bludit-wizard-mcp",
   "repository": "https://example.com/bludit-wizard-mcp",
-  "license": "MIT",
-  "keywords": ["bludit", "cms", "pages", "content", "publishing"],
+  "license": "GPL-3.0-only",
+  "keywords": [
+    "bludit",
+    "cms",
+    "pages",
+    "content",
+    "publishing"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
@@ -44,7 +50,7 @@
           "negative": []
         },
         "commerce": false,
-        "commerce_description": "This plugin is free, open source under the MIT licence, and sells nothing."
+        "commerce_description": "This plugin is free, open source under the GPL-3.0-only licence, and sells nothing."
       },
       "publication": {
         "release_notes": "Initial release: 19 tools for reading, drafting and updating Bludit pages, with OAuth 2.1 authorization and a review-before-apply workflow."

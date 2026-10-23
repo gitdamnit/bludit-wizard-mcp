@@ -220,7 +220,7 @@ describe('local stdio: the built process', () => {
     const version = await run(['--version']);
     expect(version.code).toBe(0);
     expect(version.stdout).toBe('');
-    expect(version.stderr.trim()).toBe('0.1.0');
+    expect(version.stderr.trim()).toBe('1.0.0');
 
     const help = await run(['--help']);
     expect(help.code).toBe(0);

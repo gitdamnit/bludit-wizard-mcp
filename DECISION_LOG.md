@@ -235,3 +235,93 @@ Allowed statuses: `Proposed`, `Accepted`, `Superseded`, `Deprecated`, `Rejected`
   commit whose only purpose is that change, alongside the `PROJECT_STATUS.md`
   release-status update.
 - **Supersedes:** None
+
+### D-0009 — Licence the combined work under GPL-3.0-only, retaining upstream MIT
+
+- **Date:** 2026-10-23
+- **Status:** Accepted
+- **Context:** The first stable release is being prepared. The maintainer asked for
+  GPL-3.0-only, matching the native Bludit Wizard PHP plugin. This repository is a
+  derivative of `bludit/bludit-mcp`, which is MIT-licensed, and every runtime
+  dependency is MIT-licensed as well.
+- **Alternatives Considered:** Stay MIT (rejected: the maintainer chose
+  GPL-3.0-only for this release); dual-license MIT/GPL (rejected: the maintainer
+  did not authorise a second licence choice); keep the project unlicensed
+  (rejected: not distributable).
+- **Decision:** License the combined work under GPL-3.0-only and keep the complete
+  upstream MIT notice in `NOTICE`. MIT is one-way compatible with GPLv3, so the
+  relicensing is valid; the upstream copyright and permission notice remain intact
+  and its code remains available under MIT.
+- **Rationale:** GPLv3 is compatible with every dependency in use (MIT and,
+  for development-only tools, Apache-2.0), and retaining the upstream notice is
+  required by MIT regardless of the licence of the combined work.
+- **Consequences:** `LICENSE` contains the verbatim GPLv3 text, `package.json` and
+  the README say `GPL-3.0-only`, and every future dependency must remain
+  GPLv3-compatible. Downstream users must comply with the GPL when redistributing
+  the combined work.
+- **Supersedes:** None
+
+### D-0010 — The first stable release is distributed as a GitHub release asset only
+
+- **Date:** 2026-10-23
+- **Status:** Accepted
+- **Context:** The maintainer authorised preparing and publishing a GitHub release,
+  and explicitly did not authorise publishing to the npm registry. The package is
+  already verifiable through `npm pack` and a clean install.
+- **Alternatives Considered:** Publish to npm (not authorised); leave distribution
+  as source-only (rejected: the release must be independently installable, and a
+  verified tarball is the artifact the acceptance work produced).
+- **Decision:** Keep `private: true`, attach the packed tarball plus its SHA-256
+  checksum to the GitHub release, and document installation from that asset. Flipping
+  `private` and publishing to npm remains a separate, explicit act.
+- **Rationale:** It satisfies "independently installable" without the irreversible
+  step of an npm publication, and keeps D-0008's safety property.
+- **Consequences:** `npx bludit-wizard-mcp` is not available from this release;
+  installation instructions use the release tarball. A future npm publication needs
+  a new decision and a `private: false` commit.
+- **Supersedes:** None
+
+### D-0011 — Accept the multi-writer race as a documented limitation
+
+- **Date:** 2026-10-23
+- **Status:** Accepted
+- **Context:** Live acceptance testing showed that two independent writers pinned to
+  the same page revision can both pass the revision check and overwrite each other;
+  the last write wins. Bludit's API has no conditional write. Applying the same
+  proposal twice is already refused.
+- **Alternatives Considered:** Add a per-process mutex (rejected: it cannot protect
+  against a second MCP process or an external Bludit editor, so it would advertise
+  a guarantee the system cannot make); add a distributed lock (rejected: requires a
+  service the local edition deliberately does not have); remove revision pinning
+  (rejected: it still prevents the common stale-approval case).
+- **Decision:** Keep the current behaviour and state the limitation precisely in the
+  README, tool documentation and release notes.
+- **Rationale:** The residual risk requires two simultaneous writers on one page,
+  and the honest mitigation is documentation rather than a misleading partial lock.
+- **Consequences:** Sequential stale edits, expired proposals and replayed proposals
+  remain refused; simultaneous writers are not serialised. A future release may
+  introduce a per-site lock if a deployment model makes it meaningful.
+- **Supersedes:** None
+
+### D-0012 — Release from `main`, keep the feature branch and the legacy worktree
+
+- **Date:** 2026-10-23
+- **Status:** Accepted
+- **Context:** `main` is an ancestor of `feat/local-stdio-edition`, which is 23
+  commits ahead and contains the nineteen-tool implementation. The legacy worktree
+  (`feat/remote-mcp-oauth-v1`) has no commits that are not already in the release
+  branch, but it holds uncommitted `docs/hosting/` work and is the working directory
+  of an active OpenCode session.
+- **Alternatives Considered:** Force-move `main` without checking (rejected: history
+  must be preserved and verified); delete the legacy worktree (rejected: unique
+  uncommitted hosting analysis would be lost and the active session would break);
+  rename directories or branches for cosmetics (rejected: no functional benefit and
+  it would break the verified integration path).
+- **Decision:** Fast-forward `main` to the accepted release commit, release from
+  `main`, keep `feat/local-stdio-edition` for traceability, and retain the legacy
+  worktree until its uncommitted work is dealt with and no session depends on it.
+- **Rationale:** A fast-forward is a non-destructive consolidation; the worktree and
+  branches carry unique, unpushed context that deletion would destroy.
+- **Consequences:** The public repository's default branch is `main`; the `-stdio`
+  directory name remains a local worktree label only. No force-push is used.
+- **Supersedes:** None

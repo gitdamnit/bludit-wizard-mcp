@@ -46,19 +46,33 @@ plugin and want its extended endpoints.
 
 ## 3. Run it
 
-The quickest check, straight from the repository:
+Install the release tarball from the GitHub release (this release is not
+published to the npm registry):
+
+```bash
+curl -LO https://github.com/gitdamnit/bludit-wizard-mcp/releases/download/v1.0.0/bludit-wizard-mcp-1.0.0.tgz
+npm install -g ./bludit-wizard-mcp-1.0.0.tgz
+```
+
+Or, straight from a checkout, build it and run the compiled entry point:
+
+```bash
+npm ci && npm run build:local
+```
+
+Then start the server with the three values:
 
 ```bash
 BLUDIT_URL=https://www.example.com \
 BLUDIT_API_TOKEN='your-api-token' \
 BLUDIT_AUTH_TOKEN='your-auth-token' \
-npx bludit-wizard-mcp
+bludit-wizard-mcp
 ```
 
 It prints one line to stderr and then waits on stdin:
 
 ```
-[bludit-wizard] 0.1.0 serving www.example.com (https://www.example.com)
+[bludit-wizard] 1.0.0 serving www.example.com (https://www.example.com)
 ```
 
 That is the server running correctly. It is speaking MCP over stdin/stdout; it is
@@ -93,7 +107,7 @@ A config file is just a JSON object of those names:
 
 ```bash
 chmod 600 bludit.json          # the server warns if others can read it
-npx bludit-wizard-mcp --config ./bludit.json
+bludit-wizard-mcp --config ./bludit.json
 ```
 
 The file is read once, at startup. It is never written to.
@@ -115,7 +129,7 @@ work. Configuration is per client, and these are the shapes that matter.
   "mcp": {
     "bludit": {
       "type": "local",
-      "command": ["npx", "-y", "bludit-wizard-mcp"],
+      "command": ["bludit-wizard-mcp"],
       "environment": {
         "BLUDIT_URL": "https://www.example.com",
         "BLUDIT_API_TOKEN": "{env:BLUDIT_API_TOKEN}",
@@ -139,8 +153,7 @@ environment usually does not.
 {
   "mcpServers": {
     "bludit": {
-      "command": "npx",
-      "args": ["-y", "bludit-wizard-mcp"],
+      "command": "bludit-wizard-mcp",
       "env": {
         "BLUDIT_URL": "https://www.example.com",
         "BLUDIT_API_TOKEN": "…",
@@ -153,8 +166,8 @@ environment usually does not.
 
 ### Anything else
 
-Run `npx bludit-wizard-mcp` as the command. It takes no required arguments and
-communicates only over stdio. `--config <file>` is the only option you are likely
+Run `bludit-wizard-mcp` as the command (or `node dist/local/index.js` from a
+checkout). It takes no required arguments and communicates only over stdio. `--config <file>` is the only option you are likely
 to want.
 
 ---
@@ -281,6 +294,6 @@ not survive a restart. Propose the change again.
 
 ## 9. Uninstalling
 
-Nothing was installed globally and nothing was written outside `node_modules` and
-your OS's npx cache. Remove the entry from your MCP client's config; optionally
-delete the config file with your credentials in it.
+If you installed the tarball globally, remove it with
+`npm uninstall -g bludit-wizard-mcp`. Remove the entry from your MCP client's
+config; optionally delete the config file with your credentials in it.

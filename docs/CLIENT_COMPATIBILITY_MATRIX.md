@@ -20,6 +20,10 @@ Research date: 2026-10-16. Sources are linked per client below.
 
 ## Master matrix
 
+**Local stdio:** OpenCode 2.0.21 is verified end to end against the local stdio
+edition (19/19 tools). The matrix below tracks the hosted HTTP transports, where
+no client has been verified. See [`LIVE_ACCEPTANCE_REPORT.md`](./LIVE_ACCEPTANCE_REPORT.md).
+
 Legend — Transport: `HTTP` Streamable HTTP · `SSE` legacy SSE · `stdio` local
 process. Auth: `OAuth` with discovery · `DCR` Dynamic Client Registration · `CIMD`
 Client ID Metadata Document · `HDR` static headers · `PAT` this server's personal

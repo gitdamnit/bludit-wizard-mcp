@@ -1,404 +1,340 @@
 # Bludit Wizard MCP
 
-An MCP server for [Bludit CMS](https://www.bludit.com), distributed as a **portable
-core** with three transports. Read, draft and update the pages on a Bludit site you
-own, from any MCP-compatible AI client — with a review step before anything changes.
+A local-first [Model Context Protocol](https://modelcontextprotocol.io) server for
+[Bludit CMS](https://www.bludit.com). It gives MCP-compatible AI clients nineteen
+tools for reading, searching, drafting and editing the pages of a Bludit site you
+own — with a human review step before anything changes.
 
-**The primary way to run it is locally, on your own computer.** No account, no hosted
-service, no OAuth server, no database, and nobody else to operate or pay for
-anything. The Cloudflare Workers transport still exists and is still supported; it
-is optional.
+Run it on your own computer. There is no account, no hosted service, no OAuth
+server, no database, and nobody else operating anything on your behalf. The server
+speaks MCP over stdio and talks to one Bludit site through the official Bludit API
+plugin.
 
-Whoever you are, you are not dependent on the maintainer running a server: this is
-free and independently installable.
+- **Current release:** v1.0.0 (stable)
+- **Tools:** 19, from one shared registry
+- **Transport:** stdio (MCP)
+- **Verified client:** OpenCode 2.0.21
+- **Licence:** GPL-3.0-only, with the upstream MIT notice retained
+- **Distribution:** GitHub release asset (this release is not published to the npm
+  registry)
 
-> **Status: pre-release, not deployed, not published.** The local stdio edition is
-> implemented and its tests pass; see [Verified vs. not](#verified-vs-not) for the
-> exact numbers and for what has *not* been checked. The self-hosted HTTP transport
-> is **designed but not implemented**
-> ([docs/SELF_HOSTED_HTTP.md](docs/SELF_HOSTED_HTTP.md)). **No MCP client product
-> has been verified** against any transport — clients are researched from official
-> documentation and none is tested. Nothing here claims otherwise.
+## Overview
 
-## What it is
+Bludit Wizard MCP exposes a Bludit installation to an AI client without giving the
+model unattended publishing rights. Reads and searches are direct. Writes either go
+through an explicit proposal/approval workflow or through a direct tool call that
+reports what actually landed, verified by reading the page back.
 
-| | |
+The server holds no model and performs no inference. It stores no page content. It
+keeps no database: one process serves one site from configuration, and proposals
+live in that process's memory.
+
+It is derived from [`bludit/bludit-mcp`](https://github.com/bludit/bludit-mcp) by
+Diego Najar (MIT). The original six-tool stdio server is retained unchanged for
+existing users; the nineteen-tool implementation in `src/local/` and `src/mcp/` is
+the release target.
+
+## Features
+
+### Site management
+
+| Tool | Purpose |
 |---|---|
-| Transports | **stdio (primary)**, self-hosted Streamable HTTP *(designed, not built)*, Cloudflare Workers *(preserved)* |
-| Tools | 19, identical across transports, from one shared registry |
-| Local edition | one command, one site, no database, no account, no OAuth |
-| Authorization | not needed locally; OAuth 2.1 on the Cloudflare transport |
-| Inference | none — this server calls no model and stores no page content |
-| Licence | MIT, derived from [`bludit/bludit-mcp`](https://github.com/bludit/bludit-mcp) |
+| `list_sites` | Show the configured site and its last capability report |
+| `select_site` | Resolve a site id, label or hostname |
+| `get_site_capabilities` | Probe the Bludit API and report what the site supports |
 
-## Contents
+### Website information
 
-- [Quick start: local stdio](#quick-start-local-stdio)
-- [Architecture](#architecture)
-- [Tools](#tools)
-- [Connecting a client](#connecting-a-client)
-- [Connecting a Bludit site](#connecting-a-bludit-site)
-- [Running it yourself](#running-it-yourself)
-- [Verified vs. not](#verified-vs-not)
-- [Differences from the official Bludit MCP server](#differences-from-the-official-bludit-mcp-server)
-- [Differences from the native Bludit Wizard plugin](#differences-from-the-native-bludit-wizard-plugin)
-- [Security](#security)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [Licence and attribution](#licence-and-attribution)
+| Tool | Purpose |
+|---|---|
+| `get_website_settings` | Read title, slogan, language, timezone, theme and URLs |
 
-## Quick start: local stdio
+### Page retrieval
 
-Node.js 20+ and a Bludit admin account. Full instructions, including the
-credential walkthrough and client configuration:
-**[docs/LOCAL_STDIO.md](docs/LOCAL_STDIO.md)**.
+| Tool | Purpose |
+|---|---|
+| `list_pages` | List pages with type filters and pagination |
+| `get_page` | Read one page, including raw Markdown and a revision identifier |
+| `get_drafts` | List drafts |
+| `get_scheduled_pages` | List pages scheduled for future publication |
+
+### Taxonomy
+
+| Tool | Purpose |
+|---|---|
+| `list_categories` | List categories |
+| `list_tags` | List tags in use |
+
+### Content intelligence
+
+| Tool | Purpose |
+|---|---|
+| `search_pages` | Deterministic substring search on the server |
+| `get_content_summary` | Deterministic stats, headings and warnings for a page |
+| `get_related_pages` | Rank other pages by shared tags, category and title words |
+
+### Controlled content modification
+
+| Tool | Purpose |
+|---|---|
+| `create_page` | Create a page, then read it back |
+| `edit_page` | Edit a page, then read it back; optional revision pin |
+| `propose_page_edit` | Record an immutable, revision-pinned proposal without writing |
+| `preview_page_changes` | Show the exact field and body diff a change would make |
+| `apply_approved_edit` | Apply a proposal after re-checking its revision pin |
+| `verify_page_update` | Check a page against expected revision, title, type and content |
+
+There is **no deletion tool**. That is a policy decision, not an omission.
+
+## Requirements
+
+- **Node.js 20 or newer** (`node --version`).
+- **Bludit 3.22.x** (Community or Pro) reachable over HTTPS.
+- The Bludit **API plugin enabled**: *Admin → Plugins → API*.
+- An **API token** from *Admin → Plugins → API → Settings*.
+- For writes and settings, the admin user's **auth token** from
+  *Admin → Users → your user → Security → Token*.
+
+Without the auth token the server is read-only and says so on startup.
+
+## Installation
+
+This release is distributed as a package tarball attached to the GitHub release.
+It is **not** published to the npm registry, so `npx bludit-wizard-mcp` is not
+available from this release.
 
 ```bash
-BLUDIT_URL=https://www.example.com \
-BLUDIT_API_TOKEN='from Admin → Plugins → API → Settings' \
-BLUDIT_AUTH_TOKEN='from Admin → Users → your user → Security' \
-npx bludit-wizard-mcp
+curl -LO https://github.com/gitdamnit/bludit-wizard-mcp/releases/download/v1.0.0/bludit-wizard-mcp-1.0.0.tgz
+npm install -g ./bludit-wizard-mcp-1.0.0.tgz
+bludit-wizard-mcp --version
 ```
 
-Then point an MCP client at it — OpenCode, for example:
+`--version` prints to stderr and exits; the program is an MCP server and is not
+meant to be used from a shell.
 
-```json
+To install without touching the global prefix:
+
+```bash
+npm install --prefix "$HOME/.local/share/bludit-wizard-mcp" ./bludit-wizard-mcp-1.0.0.tgz
+"$HOME/.local/share/bludit-wizard-mcp/node_modules/.bin/bludit-wizard-mcp" --version
+```
+
+From source:
+
+```bash
+git clone https://github.com/gitdamnit/bludit-wizard-mcp.git
+cd bludit-wizard-mcp
+npm ci
+npm run build:local
+node dist/local/index.js --version
+```
+
+## OpenCode Integration
+
+Install the package as above, then add a local MCP server to
+`~/.config/opencode/opencode.jsonc`:
+
+```jsonc
 {
   "mcp": {
-    "bludit": {
-      "type": "local",
-      "command": ["npx", "-y", "bludit-wizard-mcp"],
-      "environment": {
-        "BLUDIT_URL": "https://www.example.com",
-        "BLUDIT_API_TOKEN": "{env:BLUDIT_API_TOKEN}",
-        "BLUDIT_AUTH_TOKEN": "{env:BLUDIT_AUTH_TOKEN}"
+    "servers": {
+      "bludit": {
+        "type": "local",
+        "command": ["bludit-wizard-mcp"],
+        "environment": {
+          "BLUDIT_URL": "https://www.example.com",
+          "BLUDIT_API_TOKEN": "{env:BLUDIT_API_TOKEN}",
+          "BLUDIT_AUTH_TOKEN": "{env:BLUDIT_AUTH_TOKEN}"
+        }
       }
     }
   }
 }
 ```
 
-The process writes MCP protocol messages to stdout and every diagnostic to stderr,
-so a credential cannot end up in the protocol stream and a stray log line cannot
-corrupt it. Tokens without `BLUDIT_AUTH_TOKEN` make the site read-only, and the
-server says so on startup rather than failing later.
+Environment variables:
 
-## Architecture
-
-Two Workers, so that minting a token and reading a customer's page content are
-different trust boundaries:
-
-```
-MCP client ──▶ bludit-wizard-mcp (resource server) ──docs──▶ Bludit site /api/*
-                    │  OAuth 2.1 token validation
-                    │  Streamable HTTP, 19 tools
-                    ▼  Service Binding (validateToken)
-              bludit-wizard-auth (authorization server) ──▶ Bludit site (pairing proof)
-                    │  OAuth discovery, token, revocation, DCR
-                    │  consent, accounts, sessions, site management UI
-                    ▼
-                 D1 (accounts, sites, proposals, audit)  +  KV (grants, tokens)
-```
-
-The resource server learns identity only from a validated token, never from tool
-arguments. Every site and proposal lookup is scoped by account, so a tool argument
-can only select among the caller's own sites.
-
-Full detail, including the cost estimate and why the Workers free tier is not
-enough: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-### The portable core, and the three transports
-
-The transport above is now one of three, and the pieces it shares with the others
-are extracted rather than duplicated:
-
-```
-        ┌────────────────────────────────────────────────┐
-        │  PORTABLE CORE   src/bludit · src/mcp/tools    │
-        │  19 tools · schemas · validation · safety rules │
-        │  SSRF policy · redaction · the Bludit client    │
-        └───────────────────────┬────────────────────────┘
-                                │  three ports:
-                                │  SiteSource · AuditSink · ProposalStore
-        ┌───────────────────────┼────────────────────────┐
-        ▼                       ▼                        ▼
-  A. stdio               B. self-hosted HTTP       C. Cloudflare
-  (primary)              (designed, not built)     (preserved, optional)
-  one site from config   SQLite · auth · HTTPS     two Workers · D1 + KV
-  in-memory proposals    run by the operator       OAuth 2.1 · D1-backed ports
-  audit on stderr        no maintainer involvement
-  no database, no account
-```
-
-The tools reach outward through exactly three ports and cannot tell which transport
-built the context they run under. That is what makes "the same 19 tools, with the
-same behaviour" a fact that is asserted in tests rather than a claim in a README —
-and it is why the local edition did **not** require rewriting a single tool.
-[`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md) records the extraction, including the
-measured fact that the local edition's runtime dependency graph is the MCP SDK, Zod
-and the Node standard library — no Cloudflare package at all.
-
-## Tools
-
-19 tools. Page deletion is **not** among them, deliberately —
-see [docs/SECURITY.md](docs/SECURITY.md).
-
-| Tool | Scopes | Kind |
+| Variable | Required | Meaning |
 |---|---|---|
-| `list_sites` | `sites:read` | Service state |
-| `select_site` | `sites:read` | Service state |
-| `get_site_capabilities` | `sites:read` | Deterministic probes |
-| `get_website_settings` | `settings:read` | CMS read |
-| `list_pages` | `pages:read` | CMS read |
-| `get_page` | `pages:read` | CMS read |
-| `get_drafts` | `pages:read` | CMS read |
-| `get_scheduled_pages` | `pages:read` | CMS read |
-| `list_categories` | `pages:read` | CMS read |
-| `list_tags` | `pages:read` | CMS read |
-| `search_pages` | `pages:read` | Deterministic |
-| `get_content_summary` | `pages:read` | Deterministic |
-| `get_related_pages` | `pages:read` | Deterministic |
-| `preview_page_changes` | `pages:read` | Deterministic |
-| `verify_page_update` | `pages:read` | CMS read |
-| `create_page` | `pages:write` | CMS write |
-| `edit_page` | `pages:write` | CMS write |
-| `propose_page_edit` | `pages:write` | Proposal |
-| `apply_approved_edit` | `pages:write` | Proposal + CMS write |
+| `BLUDIT_URL` | yes | Site root, e.g. `https://www.example.com` (no `/api`) |
+| `BLUDIT_API_TOKEN` | yes | API plugin token |
+| `BLUDIT_AUTH_TOKEN` | no | User auth token; without it the site is read-only |
+| `BLUDIT_WIZARD_API_KEY` | no | Optional Bludit Wizard plugin extension key |
+| `BLUDIT_WIZARD_API_BASE` | no | Defaults to `<site>/api/wizard` |
+| `BLUDIT_SITE_LABEL` | no | Display name, defaults to the hostname |
+| `BLUDIT_ALLOW_INSECURE_URLS` | no | `true` allows plain HTTP on loopback only |
+| `BLUDIT_CONFIG_FILE` | no | Path to a JSON config file |
 
-Every tool is documented in [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md), including the
-difference between a real CMS action, a deterministic computation, and a proposal.
+Keep tokens in the environment rather than in the config file. If you do use a
+config file, `chmod 600` it; the server warns when others can read it.
 
-Two write paths exist on purpose. `create_page` and `edit_page` write
-immediately and read the page back to confirm. `propose_page_edit` →
-`apply_approved_edit` records an immutable, revision-pinned proposal and refuses
-to apply it if the page changed in the meantime, so a reviewed change can never
-quietly overwrite someone else's newer edit.
+Restart OpenCode (or reload the session) after adding or changing the entry. The
+tool list is read at server start.
 
-## Connecting a client
+## Other MCP Clients
 
-Point any MCP client that supports remote servers at:
+The server is a standard stdio MCP server, so any client that can launch a local
+process is expected to work. **Only OpenCode has been tested end to end.** The
+following entry works for clients that use the common `mcpServers` shape, but it
+is provided as a starting point, not as a claim of verified support:
 
-```
-https://mcp.example.com/mcp
-```
-
-The client discovers the rest. It will be sent to a consent page showing the
-client's name, the host the token will be returned to, and the permissions being
-requested. You can grant fewer than were asked for.
-
-**Which clients actually work?** Unknown — none has been tested. See
-[docs/CLIENT_COMPATIBILITY.md](docs/CLIENT_COMPATIBILITY.md) for the verification
-procedure and the hazards to watch for. No client is claimed as supported.
-
-Clients that only speak stdio can use the retained upstream server instead
-(`npm run start:stdio`), which serves one site from environment variables.
-
-## Connecting a Bludit site
-
-1. Enable the API plugin in Bludit: **Admin → Plugins → API**.
-2. Collect the **API token** (Admin → Plugins → API → Settings) and the
-   **user auth token** (Admin → Users → your user → Security → Token). The auth
-   token is optional; without it the site is read-only.
-3. Sign in to this service, choose **Connect a Bludit site**, and generate a
-   pairing challenge.
-4. Prove you control the site, in one of two ways:
-   - **With the Bludit Wizard plugin**: enter its *GPT Action API key*, and the
-     plugin answers the challenge for you.
-   - **Without any plugin**: publish the challenge, alone, at
-     `https://your-site/.well-known/bludit-wizard-challenge.txt`.
-5. Enter the site URL and tokens and connect.
-
-A pasted API token is never accepted as proof of ownership, which is what stops
-one account from claiming a site that belongs to someone else.
-
-## Running it yourself
-
-```bash
-npm ci
-npm run typecheck
-npm test                     # 378 tests, hermetic: no network, no Docker, no credentials
-npm run test:browser         # 9 more, Playwright against the same in-process Workers
-npm run build:auth           # dry-run build, no network
-npm run build:mcp
+```json
+{
+  "mcpServers": {
+    "bludit": {
+      "command": "bludit-wizard-mcp",
+      "env": {
+        "BLUDIT_URL": "https://www.example.com",
+        "BLUDIT_API_TOKEN": "REPLACE_ME",
+        "BLUDIT_AUTH_TOKEN": "REPLACE_ME"
+      }
+    }
+  }
+}
 ```
 
-Against real Bludit installations, using Docker only to host them:
+Remote-only clients need a stdio bridge or a future HTTP transport; the local
+edition does not listen on a socket.
 
-```bash
-PRO_ZIP=/path/to/bludit-pro-3.22.0.zip scripts/live-bludit-up.sh both
-npm run test:live            # 24 tests against the real CMS
-scripts/live-bludit-up.sh --down
-```
+## Authentication
 
-Local development with two Workers:
+Two Bludit credentials serve different purposes:
 
-```bash
-cp .dev.vars.example .dev.vars   # fill in three generated secrets
-npm run db:migrate:local
-npm run dev:auth                 # terminal 1 — http://localhost:8787
-npm run dev:mcp                  # terminal 2 — http://localhost:8788
-```
+- **API token** — required. It is the read credential. With only this token the
+  server can list and read pages, categories, tags and capabilities, but cannot
+  read site settings or write.
+- **User auth token** — optional but required for writes and settings. It is sent
+  only when the operation needs it.
 
-Deployment, including the resource creation, secrets, migration, ordering and
-approval gates, is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), and the
-deployment-readiness gate is in
-[docs/DEPLOYMENT_READINESS.md](docs/DEPLOYMENT_READINESS.md). Nothing in this
-repository deploys, creates resources, or changes DNS on its own.
+Both travel in the request query string or JSON body according to the Bludit API
+plugin's rules, exactly as Bludit expects. They are never printed, never logged,
+and never returned in a tool response or error.
 
-Cost: **$5/month** (Workers Paid) for a small deployment. The free tier is not
-sufficient, for a specific reason — password hashing needs more than its 10 ms CPU
-allowance. The arithmetic is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Human-Controlled Editing
 
-## Verified vs. not
+The recommended write path is:
 
-This project takes the difference seriously.
+1. **Propose** — `propose_page_edit` records an immutable proposal pinned to the
+   page's current revision. Nothing is written.
+2. **Preview** — `preview_page_changes` shows field-level changes and a unified
+   Markdown diff, computed by the same code that applies the change.
+3. **Approve** — a human decides. Approval is the act of calling the apply tool
+   with `confirm: true`; there is no separate approval artifact locally.
+4. **Apply** — `apply_approved_edit` claims the proposal, re-reads the page and
+   refuses if the revision moved, applies the change, then reads it back.
+5. **Verify** — `verify_page_update` checks the result against expectations.
 
-**Verified by automated tests** (411 tests, all passing):
+Direct `create_page` and `edit_page` exist for callers that want immediate writes.
+They also read the page back and report the revision before and after.
 
-- The SSRF policy, including IPv4-mapped, NAT64, 6to4 and obfuscated literals.
-- Credit-card-style credential handling: encryption, additional-data binding,
-  password hashing, redaction.
-- The Bludit API client's transport rules and error mapping.
-- The full OAuth path in real workerd: discovery → DCR → PKCE → consent → token →
-  `tools/list` → `tools/call` → scope step-up → refresh → revocation.
-- Per-client and per-account isolation, cross-account proposal rejection.
-- The pairing flow, including challenge reuse, wrong challenge, and a misbehaving
-  Wizard extension.
-- 19 tools end to end against a faithful mock of the Bludit 3.22.x API.
-- Both Workers under the production compatibility flag.
-- **14 operations against real Bludit Community 3.22.0 and real Bludit Pro
-  3.22.0**, including create, edit, and the full propose → preview → apply →
-  verify path, with a stale approval correctly refused.
-- **Community and Pro are byte-identical** in `bl-plugins/api/plugin.php` and every
-  kernel file the API depends on, so no feature is edition-gated.
-
-**Not verified, and not claimed:**
-
-- No real MCP client product has been used. The protocol is proven by a
-  specification-following client in the harness; no product has been connected.
-- The live Bludit installations are loopback over plain http, so the production
-  SSRF policy and TLS are not exercised by them.
-- The Bludit Wizard PHP extension has not been live-tested.
-- Nothing has been deployed.
-
-Live testing earned its keep immediately: it found that Bludit sends `tags` as a
-comma-joined **string** rather than an array, which the mock had wrong and which
-made `search_pages` fail on a real site.
-
-[docs/TEST_REPORT.md](docs/TEST_REPORT.md) records the environment, commit,
-versions, measured results and limitations.
-[docs/BLUDIT_COMPATIBILITY_MATRIX.md](docs/BLUDIT_COMPATIBILITY_MATRIX.md) labels
-every compatibility cell.
-
-## Differences from the official Bludit MCP server
-
-Full account, including a file-by-file provenance table and the pinned upstream
-commit: [docs/UPSTREAM_COMPARISON.md](docs/UPSTREAM_COMPARISON.md).
-
-| | Official `bludit-mcp` | This |
-|---|---|---|
-| Transport | stdio | Streamable HTTP |
-| Identity | possession of the process | OAuth 2.1, per-account and per-client |
-| Sites | one, from env vars | many, per account |
-| Tools | 6 (incl. `delete_page`) | 19, no deletion |
-| Credentials | in the environment | encrypted at rest, never logged |
-| Concurrency | none | revision identifiers, stale-approval rejection |
-| Review workflow | none | propose → preview → apply → verify |
-| Capability reporting | none | `get_site_capabilities` |
-| Tests | none | 411 |
-
-The upstream stdio server is retained unchanged so existing users are not broken.
-
-## Differences from the native Bludit Wizard plugin
-
-[`Bludit Wizard`](docs/PHP_WIZARD_INTEGRATION.md) is a separate, native PHP plugin
-that adds an AI-assisted admin interface inside Bludit.
-
-| | Native PHP Wizard | This service |
-|---|---|---|
-| Runs | inside Bludit, as a plugin | on Cloudflare, separate from the site |
-| Inference | calls the provider *you* configure (OpenAI, Ollama, OpenRouter, any OpenAI-compatible endpoint) | **none** — no model, no provider key |
-| Needs | PHP 8+, cURL, your API key | an OAuth account here |
-| Works with | Bludit's own admin UI, Custom GPT Actions | any MCP client |
-| Depends on the other | no | no |
-
-They are independent, and both stay that way. The hosted service works with the
-official Bludit API alone; the Wizard plugin is optional and only ever improves
-the connection step and the capability report. The PHP plugin is not modified by
-this project. Where this service would benefit from an interface the plugin does
-not yet expose, the contract is *proposed* in
-[docs/PHP_WIZARD_INTEGRATION.md](docs/PHP_WIZARD_INTEGRATION.md) rather than
-invented in code.
+Revision pinning prevents the common case of applying a proposal built from a page
+that has since changed, and it prevents replaying the same proposal. It cannot
+prevent two writers racing at exactly the same moment: Bludit has no conditional
+write, so when two independent writers both pass the revision check, the last
+write wins. The same proposal cannot be applied twice.
 
 ## Security
 
-Summarised here; the full model, findings and accepted risks are in
-[docs/SECURITY.md](docs/SECURITY.md).
+- **SSRF policy** — site URLs must be HTTPS (loopback HTTP only with the explicit
+  development flag). Loopback, private, link-local and cloud-metadata addresses are
+  rejected, as are embedded credentials, invalid ports and unsupported schemes.
+  Redirects are re-validated at every hop; a redirect to a restricted address is
+  refused.
+- **Bounded responses** — response bodies are capped, requests time out, and a
+  truncated or oversized body is an error rather than partial data.
+- **Structured failures** — errors use stable codes such as `invalid_input`,
+  `not_found`, `site_auth_failed`, `revision_mismatch`, `conflict`,
+  `proposal_expired`, `site_unreachable` and `upstream_error`. Upstream bodies and
+  credentials are not echoed.
+- **No inference, no storage** — the server calls no model and keeps no page
+  content. Proposals and capability results live in process memory.
+- **No deletion, no unattended publication** — those tools do not exist.
+- **Malformed upstream responses** — a `200` response that is not valid JSON is
+  reported as `upstream_error`, never as an empty success.
 
-- Site credentials are AES-256-GCM encrypted with a Worker secret, with the site
-  id as additional authenticated data. Plaintext exists only inside one request.
-  (The local edition stores no credentials at all — it reads them from
-  configuration per call, so there is nothing to encrypt.)
-- SSRF defence in four layers: the platform's `global_fetch_strictly_public`
-  flag, a static URL policy, redirect revalidation, and response bounds.
-  **The platform layer exists only on Cloudflare.** The local edition has the other
-  three, and the documentation says so rather than implying uniformity — see
-  [docs/LOCAL_STDIO.md](docs/LOCAL_STDIO.md#7-security-honestly).
-- Every tool enforces its scopes server-side, twice — once in the HTTP pre-flight
-  and once inside the tool.
-- Proposals are bound to an account and a site and pinned to a page revision.
-- Logs redact anything credential-shaped; errors never carry a secret.
-- **Page deletion is not exposed.** Bludit has no soft delete, so an
-  agent-driven delete would be unrecoverable.
-- **Every public entry point is rate limited** — sign-in, authorization, token,
-  registration, pairing, connection and MCP requests — with counters that store no
-  IP address and no email address.
-- The repository contains no secret. `.dev.vars.example` has variable names and
-  empty values only.
+## Troubleshooting
 
-Report a vulnerability privately — see [docs/SECURITY.md](docs/SECURITY.md).
+**`BLUDIT_URL is required` / `BLUDIT_API_TOKEN is required`** — the process exits
+at startup by design. Set both variables.
 
-## Documentation
+**`site_auth_failed` on reads** — check the API plugin is enabled and the API token
+matches *Admin → Plugins → API → Settings*.
 
-| Document | Contents |
-|---|---|
-| [LOCAL_STDIO.md](docs/LOCAL_STDIO.md) | **The local stdio edition**: install, configure, client setup, security tradeoffs, troubleshooting |
-| [REUSE_AUDIT.md](docs/REUSE_AUDIT.md) | What was reused, what was extracted into the core, what was deliberately not ported, and the measured dependency map |
-| [SELF_HOSTED_HTTP.md](docs/SELF_HOSTED_HTTP.md) | Design for the optional self-hosted HTTP transport — **not implemented** |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Topology, why two Workers, bindings, data model, threat model, cost |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Local development, resource creation, deployment order, approval gates |
-| [SECURITY.md](docs/SECURITY.md) | Security model, findings, accepted risks, remaining work |
-| [MCP_TOOLS.md](docs/MCP_TOOLS.md) | Every tool, its scopes, and its error codes |
-| [UPSTREAM_COMPARISON.md](docs/UPSTREAM_COMPARISON.md) | Exactly what came from upstream, and every behavioural difference |
-| [PHP_WIZARD_INTEGRATION.md](docs/PHP_WIZARD_INTEGRATION.md) | The PHP plugin's API, and the contracts this server needs from it |
-| [BLUDIT_COMPATIBILITY_MATRIX.md](docs/BLUDIT_COMPATIBILITY_MATRIX.md) | Editions, versions and modelled feature combinations |
-| [CLIENT_COMPATIBILITY.md](docs/CLIENT_COMPATIBILITY.md) | How to verify an MCP client, and what is unverified |
-| [TEST_REPORT.md](docs/TEST_REPORT.md) | Measured results, environment, limitations |
-| [OPENAI_PUBLICATION_CHECKLIST.md](docs/OPENAI_PUBLICATION_CHECKLIST.md) | Publication readiness, test cases, remaining steps |
-| [DEPLOYMENT_READINESS.md](docs/DEPLOYMENT_READINESS.md) | Exact Cloudflare resources, cost, remaining risks, and the safe deploy sequence |
-| [HOSTINGER_FEASIBILITY.md](docs/HOSTINGER_FEASIBILITY.md) | Whether the $5/month Cloudflare subscription can be avoided by moving to existing Hostinger hosting |
-| [CLIENT_COMPATIBILITY_MATRIX.md](docs/CLIENT_COMPATIBILITY_MATRIX.md) | Twelve client targets: transport, auth, configuration, and what is verified |
-| [CLIENT_SETUP_GUIDES.md](docs/CLIENT_SETUP_GUIDES.md) | One setup guide per client, with copyable templates |
-| [CLIENT_GAP_ANALYSIS.md](docs/CLIENT_GAP_ANALYSIS.md) | What already worked, what needed building, and what was deliberately not built |
-| [PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) | Requirements with status and evidence |
-| [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | Current state, remaining risks, what the first deployment needs |
-| [DECISION_LOG.md](docs/DECISION_LOG.md) | Twenty-four decisions with their reasons |
+**`site_auth_failed` on writes or settings** — add `BLUDIT_AUTH_TOKEN` from
+*Admin → Users → your user → Security → Token*. The startup banner prints
+`[read-only]` when it is missing.
 
-## Contributing
+**`site_unreachable`** — the site is down, the URL is wrong, TLS failed, or the
+request timed out. Check the base URL is the site root, not an `/api` path.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Two rules matter more than the rest: do
-not claim a client or an edition works until it has been tested, and do not merge
-upstream silently.
+**`not_found` from a page read** — Bludit page keys are slugs, possibly
+hierarchical (`parent/child`). An HTTP 404 can also mean the API plugin is
+disabled.
 
-## Licence and attribution
+**New page not visible immediately** — a newly created key has occasionally taken
+a moment to become readable through a separate request on shared hosting. The
+server's own read-back succeeded and a retry resolves it.
 
-MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+**OpenCode does not show the tools** — confirm the `command` path exists, check
+stderr in the OpenCode logs, then reload the session or restart OpenCode.
+
+## Known Limitations
+
+- No page deletion and no unattended publication.
+- Proposals are held in process memory, expire after 15 minutes by default, and do
+  not survive a restart. Re-propose after a restart.
+- Revision pinning does not serialise two independent writers racing on the same
+  revision; last write wins in that edge case.
+- Bludit derives slugs from titles and keeps punctuation and Unicode, so generated
+  page keys can contain them.
+- Bludit escapes HTML-like text and special characters on store; read-back is the
+  stored form, not necessarily a byte-for-byte copy of the input.
+- `search_pages` with `include_content: true` requires an explicit
+  `scan_limit <= 40`, because every scanned page is a separate upstream request.
+- Site settings require the user auth token.
+- Only OpenCode has been verified as an MCP client.
+- The Cloudflare Workers transport is preserved in the source but is not part of
+  the local distribution.
+
+## Testing
+
+Final verification for v1.0.0:
+
+- **438 hermetic tests** across 27 files — MCP protocol, all 19 tools, validation,
+  authentication, SSRF, revisions, proposals, failure recovery, packaging helpers.
+- **9 Playwright browser tests** for the authorization-server pages.
+- **18 Docker-backed live tests** against a disposable Bludit Community 3.22.0
+  installation (12 hosted-transport compatibility tests, 6 local stdio tests),
+  0 failed.
+- **Live acceptance** against a disposable Bludit site through OpenCode: all 19
+  tools exercised, ~90 isolated positive/negative probes, read-only and write
+  workflows, restart and concurrency behaviour.
+
+The acceptance report and its machine-readable evidence are in
+[`docs/LIVE_ACCEPTANCE_REPORT.md`](docs/LIVE_ACCEPTANCE_REPORT.md) and
+`docs/evidence/live-acceptance-2026-10-17.json`.
+
+## Licence
+
+**GPL-3.0-only.** See [LICENSE](LICENSE) for the complete GNU General Public
+License version 3 text and [NOTICE](NOTICE) for the retained upstream MIT licence,
+copyright notices and dependency licences. The complete corresponding source for
+the v1.0.0 release is <https://github.com/gitdamnit/bludit-wizard-mcp/tree/v1.0.0>.
 
 This project is a derivative of
-[`bludit/bludit-mcp`](https://github.com/bludit/bludit-mcp) by Diego Najar,
-pinned at commit `73b5ddcb92015d1359370ba2613090eef6af910c`. The original
-copyright notice is retained in full, the repository keeps upstream's complete git
-history, and `src/index.js` is upstream code with only a provenance header added.
+[`bludit/bludit-mcp`](https://github.com/bludit/bludit-mcp) by Diego Najar, pinned
+at commit `73b5ddcb92015d1359370ba2613090eef6af910c`. The original MIT copyright
+notice is retained in full, the repository keeps upstream's complete Git history,
+and `src/index.js` is upstream code with only a provenance header added.
 
 Bludit itself is a separate project. This server talks to a Bludit site over its
 HTTP API; it does not bundle or modify Bludit.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Two rules matter most: do not claim a
+client or Bludit edition works until it has been tested, and do not merge upstream
+silently. Run `npm run typecheck`, `npm test` and `npm run test:browser` before
+opening a pull request, and keep the nineteen-tool surface and its error contracts
+intact unless a release-blocking defect justifies a documented change.

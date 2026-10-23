@@ -23,7 +23,7 @@ import { registerTools } from './tools/index.js';
 import type { ToolContext } from './tools/context.js';
 
 export const SERVER_NAME = 'bludit-wizard-mcp';
-export const SERVER_VERSION = '0.1.0';
+export const SERVER_VERSION = '1.0.0';
 
 export const INSTRUCTIONS = `Bludit Wizard MCP manages Bludit CMS websites on behalf of the signed-in account.
 

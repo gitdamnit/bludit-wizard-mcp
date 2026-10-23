@@ -1,11 +1,16 @@
 # MCP client compatibility
 
-## Status: no client has been verified
+## Status: OpenCode verified for local stdio; hosted transports unverified
 
-**Not one of the target clients has been used against this server.** This
-document therefore records what is implemented, what has been tested, and what
-each claim would require — not a compatibility matrix of verified clients,
-because claiming that would be false.
+**OpenCode 2.0.21 has been driven end to end against the local stdio edition**:
+`initialize`, `tools/list`, all nineteen `tools/call` operations, read and write
+workflows, error propagation, and restart behaviour. See
+[`LIVE_ACCEPTANCE_REPORT.md`](./LIVE_ACCEPTANCE_REPORT.md).
+
+**No client has been verified against the hosted HTTP transports.** For those,
+this document records what is implemented, what has been tested, and what each
+claim would require — not a compatibility matrix of verified clients, because
+claiming that would be false.
 
 ### What *has* been verified
 

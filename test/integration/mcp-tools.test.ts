@@ -113,7 +113,7 @@ describe('MCP protocol surface', () => {
     const result = await initialize(harness.mcp, token);
     const serverInfo = (result?.result as { serverInfo?: { name: string; version: string } } | undefined)?.serverInfo;
     expect(serverInfo?.name).toBe('bludit-wizard-mcp');
-    expect(serverInfo?.version).toBe('0.1.0');
+    expect(serverInfo?.version).toBe('1.0.0');
   });
 
   it('lists every tool and never exposes page deletion', async () => {

@@ -2,11 +2,11 @@
 
 ## Current Phase
 
-In Progress
+Released
 
-Architecture migration to a portable core. The local stdio edition is implemented
-and tested, including against a real Bludit installation. The self-hosted HTTP
-transport is designed only; its implementation awaits approval.
+The local stdio edition is implemented, licensed, tested and published as a GitHub
+release (source tag plus tarball asset). The self-hosted HTTP transport remains
+designed only; the Cloudflare Workers transport is preserved but not deployed.
 
 ## Repository State
 
@@ -23,9 +23,15 @@ documents remain under `docs/`.
 
 Work happened in a dedicated Git worktree at
 `/home/evan/Projects/Bludit-Wizard-MCP-stdio`, because a concurrent session was
-editing `docs/hosting/` in the primary worktree. See Blockers. That isolation held:
-the concurrent session's four modified and one untracked file were never touched,
-and neither worktree's `HEAD` moved.
+editing `docs/hosting/` in the primary worktree. That isolation held: the concurrent
+session's four modified and one untracked file were never touched.
+
+For the release, `main` was fast-forwarded to the accepted release commit and is the
+public default branch. `feat/local-stdio-edition` is retained for traceability. The
+legacy worktree (`/home/evan/Projects/Bludit-Wizard-MCP`, branch
+`feat/remote-mcp-oauth-v1`) is retained: its commits are already in `main`, but it
+holds uncommitted `docs/hosting/` analysis and is the working directory of an active
+session. See decision D-0012.
 
 ## Verification Evidence
 
@@ -89,24 +95,25 @@ two are reported separately for that reason.
 | Suite | Command | Result | Evidence |
 |---|---|---|---|
 | Local stdio (hermetic) | `npm run test:local` | Pass | 40 tests across 4 files: config 12, protocol/tools 17, spawned process 6, network safety 5 — `test/local/` |
-| Live Bludit Community 3.22.0 | `npm run test:live` | Pass | 6 tests, real container, real API — `test/live/local-stdio-live.test.ts` |
+| Live Bludit Community 3.22.0 | `npm run test:live` | Pass | 18 tests in the full live suite (12 hosted compatibility + 6 local stdio), real container, real API — `test/live/`, `reports/live-junit.xml` |
 | Live Bludit Pro 3.22.0 | `PRO_ZIP=… npm run live:up` | Not run | Pro is not publicly downloadable; `scripts/live-bludit-up.sh` skipped it and said so — `scripts/live-bludit-up.sh` |
 | Hosted path after extraction | `npx vitest run test/integration/mcp-tools.test.ts test/integration/pats.test.ts test/integration/client-journey.test.ts test/integration/security-controls.test.ts` | Pass | 73 tests, covering every call site the extraction touched — `reports/junit.xml` |
-| Full hermetic suite | `npm test` | Pass | 436 tests across 27 files, 0 failed, including the 41 local stdio tests — `reports/junit.xml` |
+| Full hermetic suite | `npm test` | Pass | 438 tests across 27 files, 0 failed, including the local stdio tests — `reports/junit.xml` |
 | Cloudflare Worker builds | `npm run build:auth` and `npm run build:mcp` | Pass | Both built under wrangler `--dry-run`; nothing uploaded — `wrangler.auth.jsonc`, `wrangler.mcp.jsonc` |
-| Clean package install | `npm pack` then `--omit=dev` install in an empty directory | Pass | 15 checks: no build tooling needed, `--version`, `--help`, explicit config failure, 19 tools over real stdio — `package.json` |
-| Browser authorization pages | `npm run test:browser` | Not run | Requires Chromium; unaffected by this work — `test/browser/auth-pages.spec.ts` |
+| Clean package install | `npm pack` then `npm install --prefix` of the tarball | Pass | `--version` reports 1.0.0; a real stdio client lists all 19 tools and no deletion tool — `docs/RELEASE_NOTES_v1.0.0.md` |
+| Browser authorization pages | `npx playwright test` | Pass | 9 tests, 0 failed — `reports/playwright-junit.xml` |
 
 What is **not** claimed:
 
-- **No MCP client product has been verified** against any transport. The SDK's own
-  client over a real stdio pipe exercises the protocol; a client product's
-  configuration and inspector behaviour is a separate question.
-- The live run covers **Community only**.
+- **OpenCode 2.0.21 is the only verified MCP client**, and only for the local stdio
+  edition. Other clients and the hosted HTTP transports remain unverified.
+- The live run covers **Bludit Community only**; Pro is not publicly downloadable.
 
 ## Known Defects
 
-- None known in the local stdio edition.
+- None known in the local stdio edition. The malformed-JSON success defect found
+  during acceptance was fixed before release (`src/bludit/client.ts`, two regression
+  tests).
 
 Two observations that are design, not defects, recorded so they are not mistaken for
 bugs later:
@@ -132,10 +139,10 @@ bugs later:
 
 ## Blockers
 
-1. **A concurrent session is editing this repository.** Four files under
+1. **Uncommitted hosting analysis in the legacy worktree.** Four files under
    `docs/hosting/` are modified and one (`PHP_ADAPTATION_ANALYSIS.md`) is untracked,
-   none of them by this work. Mitigated by working in a separate Git worktree; **not
-   resolved**, because it is another agent's work.
+   none of them by this work. The worktree is retained until that work is dealt with
+   and no active session depends on it. It does not block the release.
 2. **Five files were committed accidentally by this session** in `7b89401` via a
    `git add -A` (and one in `bfa4da8`). History was **not** rewritten to fix
    attribution, per instruction. Those files are otherwise untouched. How to
@@ -145,35 +152,34 @@ bugs later:
    the five open questions in §14 of that document.
 4. **Bludit Pro could not be live-tested**, because its archive is not publicly
    available. Unblocked by setting `PRO_ZIP`.
-5. **ChatGPT / Gemini Enterprise client capabilities are unverified.** Not
-   investigated in this phase; `docs/SELF_HOSTED_HTTP.md` §12 says so.
+5. **Only OpenCode has been verified as an MCP client**, and only over local stdio.
+   Other client products and the hosted transports remain unverified.
+6. **npm registry publication was not authorised** for this release; the package is
+   distributed as a GitHub release asset with `private: true` retained.
 
 ## Next Actions
 
 1. Resolve blocker 2 — agree how to attribute the accidentally committed files.
 2. Decide the three structural questions in `docs/SELF_HOSTED_HTTP.md` §14 before
-   any remote implementation begins (topologies, SQLite driver, whether OAuth ships
-   in the first release).
-3. Verify a real MCP client product — OpenCode first — against the local edition, and
-   record the result. This is the largest remaining gap in the local edition's
-   evidence.
-4. Run the live suite against Bludit Pro by supplying `PRO_ZIP`, to close the
+   any remote implementation begins.
+3. Run the live suite against Bludit Pro by supplying `PRO_ZIP`, to close the
    Community-only gap.
-5. Prepare, but do not publish, a GitHub Release and an npm package: the packaging
-   works (`npm pack`, clean install verified), and publication needs the maintainer's
-   explicit approval.
-6. Decide whether `src/index.js` (upstream's stdio server) is deprecated in favour of
+4. Verify additional MCP clients against the local stdio edition, and record each
+   result.
+5. Decide whether `src/index.js` (upstream's stdio server) is deprecated in favour of
    the local edition, and on what timeline.
+6. If npm publication is wanted later, flip `private: false` in a dedicated commit
+   and publish the verified tarball (decision D-0010).
 
 ## Release Status
 
-**Not released. Not published. Not deployed.**
+**Released: v1.0.0 on GitHub. Not published to npm. Not deployed.**
 
-No deployment, no package publication, no release tag, no hosting purchase, and no
-central server operated for anyone. The local edition is prepared for distribution —
-it installs cleanly from a packed tarball and runs — but publication requires the
-maintainer's explicit approval and a Verification Evidence entry above recording the
-published artefact.
+- GitHub repository: <https://github.com/gitdamnit/bludit-wizard-mcp>
+- Release: <https://github.com/gitdamnit/bludit-wizard-mcp/releases/tag/v1.0.0>
+- Package asset: `bludit-wizard-mcp-1.0.0.tgz`
+- Licence: GPL-3.0-only, upstream MIT notice retained.
+- npm registry: **not published**; `private: true` retained (D-0010).
 
-The Cloudflare Workers were validated with `wrangler deploy --dry-run` only. Nothing
-was uploaded.
+No hosting service is operated for anyone. The Cloudflare Workers were validated
+with `wrangler deploy --dry-run` only; nothing was uploaded.

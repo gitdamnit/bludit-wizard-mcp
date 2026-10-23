@@ -1,10 +1,19 @@
 {
   "name": "bludit-wizard-mcp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "MCP server for Bludit CMS, distributed free: a portable core with a local stdio edition (primary) and a preserved Cloudflare Workers transport. Derived from bludit/bludit-mcp (MIT).",
-  "license": "MIT",
+  "description": "MCP server for Bludit CMS: a local-first, nineteen-tool Model Context Protocol server for site discovery, content retrieval, search, and human-controlled page editing. Derived from bludit/bludit-mcp (MIT).",
+  "license": "GPL-3.0-only",
+  "author": "Evan Zellner",
+  "homepage": "https://github.com/gitdamnit/bludit-wizard-mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gitdamnit/bludit-wizard-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gitdamnit/bludit-wizard-mcp/issues"
+  },
   "engines": {
     "node": ">=20"
   },
@@ -14,6 +23,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "NOTICE",
     "docs/LOCAL_STDIO.md",

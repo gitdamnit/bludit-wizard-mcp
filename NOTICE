@@ -1,8 +1,22 @@
-Bludit Wizard MCP — third-party notices
-=======================================
+Bludit Wizard MCP — licensing and third-party notices
+======================================================
 
-Upstream project
-----------------
+Project licence
+---------------
+
+  Bludit Wizard MCP is licensed under the GNU General Public License,
+  version 3 only (GPL-3.0-only). The complete licence text is in `LICENSE`.
+
+  Copyright (c) 2026 Evan Zellner — Bludit Wizard MCP modifications and
+  additions.
+
+  GPL-3.0-only is compatible with every component below: the upstream project
+  and all runtime dependencies are MIT-licensed, and MIT is compatible with the
+  GPL. Their notices are retained in full and their code remains available under
+  their original terms.
+
+Upstream project (MIT, retained)
+--------------------------------
 
   Project:   bludit-mcp
   Owner:     Bludit (Diego Najar)
@@ -13,20 +27,19 @@ Upstream project
 
 This repository began as a clone of that repository and retains its full git
 history, so every upstream commit remains attributable. The MIT licence and the
-original copyright notice are preserved in LICENSE.
+original copyright notice are reproduced below, as that licence requires.
 
-What is inherited from upstream
--------------------------------
+What is inherited from upstream:
 
   - The repository history and the MIT licence.
   - `src/index.js`, the single-site stdio MCP server. It is retained verbatim
     apart from a provenance header, so existing stdio users keep working.
 
-What is new in this repository
-------------------------------
+What is new in this repository (GPL-3.0-only):
 
-  - The Cloudflare Workers deployment: an authorization server Worker, an MCP
-    resource server Worker, D1 schema, and OAuth 2.1 wiring.
+  - The portable core, the local stdio edition, and the Cloudflare Workers
+    deployment: an authorization server Worker, an MCP resource server Worker,
+    D1 schema, and OAuth 2.1 wiring.
   - The expanded tool catalogue, the proposal/approval workflow, capability
     detection, content intelligence, and the SSRF policy.
   - The entire test suite, the documentation, and the deployment configuration.
@@ -34,14 +47,45 @@ What is new in this repository
 None of the upstream code is presented as independently authored. See
 `docs/UPSTREAM_COMPARISON.md` for a file-by-file account.
 
+MIT licence text (upstream bludit-mcp)
+--------------------------------------
+
+MIT License
+
+Copyright (c) 2026 Diego Najar — original work, https://github.com/bludit/bludit-mcp
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
 Third-party runtime dependencies
 --------------------------------
 
-  @modelcontextprotocol/sdk          MIT     https://github.com/modelcontextprotocol/typescript-sdk
-  @cloudflare/workers-oauth-provider MIT     https://github.com/cloudflare/workers-oauth-provider
-  hono                               MIT     https://github.com/honojs/hono
-  zod                                MIT     https://github.com/colinhacks/zod
-  @cfworker/json-schema              MIT     https://github.com/cfworker/cfworker
+All runtime dependencies are MIT-licensed, which is compatible with GPL-3.0-only:
+
+  @modelcontextprotocol/sdk           MIT  https://github.com/modelcontextprotocol/typescript-sdk
+  @cloudflare/workers-oauth-provider  MIT  https://github.com/cloudflare/workers-oauth-provider
+  hono                                MIT  https://github.com/honojs/hono
+  zod                                 MIT  https://github.com/colinhacks/zod
+  @cfworker/json-schema               MIT  https://github.com/cfworker/cfworker
+
+Development-only dependencies (TypeScript Apache-2.0, Playwright Apache-2.0,
+Vitest MIT, Wrangler MIT OR Apache-2.0) are not redistributed in the published
+package. Apache-2.0 is compatible with GPL-3.0.
 
 Bludit itself is a separate project (https://www.bludit.com) and is not
 redistributed here. This server talks to a Bludit site over its HTTP API; it does
