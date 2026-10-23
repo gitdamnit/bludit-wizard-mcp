@@ -53,7 +53,7 @@ Verify the download first:
 
 ```bash
 sha256sum bludit-wizard-mcp-1.0.0.tgz
-# SHA-256: {{SHA256}}
+# SHA-256: 4b0d1979f2be98f6937a3b68af19f9b18537ee26680ae048d643bc8b0dcf87e5
 ```
 
 Requirements: Node.js 20 or newer; Bludit 3.22.x with the API plugin enabled; an
