@@ -16,9 +16,9 @@ documents remain under `docs/`.
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
 - **Observed branch:** feat/local-stdio-edition
-- **Observed commit:** 993cc028e148e6db956721facfc75e1ef1f8d36e
+- **Observed commit:** a8efd684361a4b092655a2313428e360bd27e877
 - **Observed working tree:** dirty
-- **Observed at:** 2026-10-18T02:27:17Z
+- **Observed at:** 2026-10-23T20:26:52Z
 <!-- prodoc:observed:end -->
 
 Work happened in a dedicated Git worktree at
@@ -59,6 +59,14 @@ session. See decision D-0012.
   reported as an empty success; `src/bludit/client.ts` now raises `upstream_error`,
   with two regression tests. Evidence `docs/LIVE_ACCEPTANCE_REPORT.md`,
   `docs/evidence/live-acceptance-2026-10-17.json`, `reports/playwright-junit.xml`
+- **Verification:** commit `a8efd68` — release verification: `npm ci` (0
+  vulnerabilities), `npm run typecheck`, `npm test` (438 tests / 27 files, 0
+  failed), `npx playwright test` (9 passed), `npm run test:live` against real
+  Bludit Community 3.22.0 in Docker (18 passed: 12 hosted compatibility + 6 local
+  stdio), and `npm pack` (51 files). A clean `npm install --prefix` of the tarball
+  reports version 1.0.0 and advertises all nineteen tools over stdio. Evidence
+  `reports/junit.xml`, `reports/live-junit.xml`, `reports/playwright-junit.xml`,
+  `docs/RELEASE_NOTES_v1.0.0.md`.
 
 ## Completed Work
 
