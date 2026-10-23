@@ -16,9 +16,9 @@ documents remain under `docs/`.
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
 - **Observed branch:** feat/local-stdio-edition
-- **Observed commit:** 4f21b230b915d3b2366fb7a9142434bc94b543d7
-- **Observed working tree:** clean
-- **Observed at:** 2026-10-17T00:56:15Z
+- **Observed commit:** 993cc028e148e6db956721facfc75e1ef1f8d36e
+- **Observed working tree:** dirty
+- **Observed at:** 2026-10-18T02:27:17Z
 <!-- prodoc:observed:end -->
 
 Work happened in a dedicated Git worktree at
@@ -46,6 +46,13 @@ and neither worktree's `HEAD` moved.
   `package.json` (`bin`, `files`, `prepack`)
 - **Verification:** commit `2faf72d` — the full hermetic suite passes: 436 tests
   across 27 files, 0 failed — evidence `reports/junit.xml`
+- **Verification:** commit `993cc02` with the acceptance fix uncommitted — the full
+  hermetic suite passes 438 tests across 27 files (0 failed), the browser suite
+  passes 9 tests, and a live acceptance run covered all 19 tools against a
+  disposable Bludit site. One defect was found and fixed: a non-JSON `2xx` body was
+  reported as an empty success; `src/bludit/client.ts` now raises `upstream_error`,
+  with two regression tests. Evidence `docs/LIVE_ACCEPTANCE_REPORT.md`,
+  `docs/evidence/live-acceptance-2026-10-17.json`, `reports/playwright-junit.xml`
 
 ## Completed Work
 

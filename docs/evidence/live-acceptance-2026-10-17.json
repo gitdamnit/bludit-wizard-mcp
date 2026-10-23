@@ -1,0 +1,89 @@
+{
+  "report": "docs/LIVE_ACCEPTANCE_REPORT.md",
+  "generatedAt": "2026-10-17T21:40:00Z",
+  "environment": {
+    "product": "Bludit Wizard MCP",
+    "transport": "local stdio",
+    "entryPoint": "dist/local/index.js",
+    "packageVersion": "0.1.0",
+    "mcpSdkVersion": "1.32.1",
+    "nodeVersion": "v22.23.2",
+    "opencodeVersion": "2.0.21",
+    "branch": "feat/local-stdio-edition",
+    "head": "993cc028e148e6db956721facfc75e1ef1f8d36e",
+    "siteHostname": "lightsalmon-caribou-519069.hostingersite.com"
+  },
+  "tools": {
+    "count": 19,
+    "names": [
+      "list_sites",
+      "select_site",
+      "get_site_capabilities",
+      "get_website_settings",
+      "list_pages",
+      "get_page",
+      "get_drafts",
+      "get_scheduled_pages",
+      "list_categories",
+      "list_tags",
+      "search_pages",
+      "get_content_summary",
+      "get_related_pages",
+      "create_page",
+      "edit_page",
+      "propose_page_edit",
+      "preview_page_changes",
+      "apply_approved_edit",
+      "verify_page_update"
+    ],
+    "deletionTools": []
+  },
+  "automated": {
+    "hermeticTestFiles": 27,
+    "hermeticTests": 438,
+    "hermeticFailed": 0,
+    "browserTests": 9,
+    "browserFailed": 0,
+    "typecheck": "pass",
+    "packDryRunFiles": 50
+  },
+  "liveFixtures": [
+    { "key": "bw-acc-20261017-2115-a", "type": "draft", "revision": "7336b5be4607bd8d531ae6f181d7e815b6c6de85082770b890150ef81941d5b0" },
+    { "key": "bw-acc-20261017-2115-b", "type": "draft", "revision": "93c43fe7ce62e5399bdf86fd198f13206a0de0224fda2c3748cdeb874a1a87dc" },
+    { "key": "bw-acc-20261017-2115-c", "type": "draft", "revision": "23784a3c63ce2feac109be886c87b38d3bd0062338174cd5deb499581d7fd406", "note": "worked through proposals, conflicts, concurrent applies" },
+    { "key": "bw-acc-20261017-2115-d", "type": "draft", "revision": "de31505b90cc45179a0c1d2e775eb9a907b174f3e1a9eb7f8b9a601dbf22b75b" },
+    { "key": "bw-acc-20261017-2115-e-—-café-amp-quot-quotes-quot-lt-t", "type": "draft", "revision": "8ba5fa1caf34ba8a6efff2ab3dd70bde823d18553de73a6b7cea3b5799210582" },
+    { "key": "bw-acc-20261017-2115-f", "type": "draft", "revision": "c01827f2d7a2dc8cbe946b5474670fdd8ef10acc4a68e9264257a09d1efebfb7", "note": "created through propose/apply" },
+    { "key": "bw-acc-20261017-2115-g", "type": "draft", "revision": "8dc417290d116da4f0e81715579e97b65fc3bd26c5ae9b7ecd18bbdda24b6df7", "note": "created through propose/apply" },
+    { "key": "bw-acc-20261017-2115-h", "type": "draft", "revision": "7e897f27ed203a5ae5c8be78dbeb989b9c255fa97fe1ab952b3df927c2539865" }
+  ],
+  "publishedPagesUnchanged": {
+    "create-your-own-content": "9a3d2ba320f549eb85a86b8f32c2b36862a511d21350165d2e3c3a8da9fec0e4",
+    "set-up-your-new-site": "723355f9bd1afd293023860e4ae7e8e5dedfefde71cc63dbc80182aeb6bb6f98",
+    "follow-bludit": "f7ebe3afdc3eb637014cc763f1a6ef0625513e1060f75b1cd3919fa34d80aadf"
+  },
+  "securityProbes": {
+    "invalidApiToken": "site_auth_failed",
+    "missingApiToken": "process refused to start",
+    "missingAuthTokenWrite": "site_auth_failed, no page created",
+    "invalidAuthToken": { "read": "ok", "settings": "site_auth_failed", "write": "site_auth_failed" },
+    "ssrfRejected": ["127.0.0.1", "localhost", "10.0.0.5", "169.254.169.254", "192.168.1.10", "ftp://", "not a url", "user:pass@", "port 99999"],
+    "redirectToPrivateAddress": "invalid_input",
+    "oversizedResponse": "site_unreachable (2 MiB cap)",
+    "tokenInResponses": false,
+    "tokenInLogs": false,
+    "tokenInGit": false
+  },
+  "defectFixed": {
+    "summary": "A 2xx response with a non-JSON body was treated as {} and reported as an empty successful result.",
+    "file": "src/bludit/client.ts",
+    "regressionTest": "test/unit/bludit-client.test.ts"
+  },
+  "limitations": [
+    "Concurrent writers pinned to the same revision can both pass the check; last write wins.",
+    "Proposals are process-local and do not survive a restart.",
+    "No deletion tool exists by design.",
+    "New pages were observed once to take a moment to become readable through a separate request.",
+    "search_pages include_content requires an explicit scan_limit <= 40."
+  ]
+}
