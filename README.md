@@ -1,5 +1,7 @@
 # Bludit Wizard MCP
 
+<img width="956" height="411" alt="Bludit Wizard MCP_ Golden Throne Release" src="https://github.com/user-attachments/assets/b9df16a7-0805-48fe-8ad3-9036e8936dcf" />
+
 **Local-first Model Context Protocol server for Bludit CMS.**
 
 **v1.0.0 · GPL-3.0-only · Public GitHub release**
