@@ -1,5 +1,12 @@
 # Hostinger acceptance report — Bludit Wizard MCP v1.0.0
 
+> **Update, later on 2026-10-23:** the maintainer authorized the specified
+> disposable site for write testing. The fresh-site blocker recorded below was
+> therefore lifted for this installation, and the complete write workflow was
+> executed against newly created drafts. See
+> [Final authorized write phase](#final-authorized-write-phase-2026-10-23).
+> **Final outcome: PASS.**
+
 - **Test date:** 2026-10-23
 - **Release under test:** Bludit Wizard MCP **v1.0.0**
   (`https://github.com/gitdamnit/bludit-wizard-mcp/releases/tag/v1.0.0`)
@@ -202,3 +209,116 @@ No MCP server defect was found in this run.
 
 The existing OpenCode MCP configuration was not modified, the released tag and
 binary were not changed, and no further release was published.
+
+
+---
+
+## Final authorized write phase (2026-10-23)
+
+This addendum records the write acceptance that the earlier section could not run.
+The earlier read-only and package results stand; the earlier `BLOCKED` outcome
+applied only to the first attempt, before the maintainer authorized this site for
+controlled writes.
+
+### Authorization and identity
+
+- The maintainer explicitly authorized controlled writes against
+  `https://lightsalmon-caribou-519069.hostingersite.com`, and confirmed that the
+  existing fixtures do not disqualify it.
+- The configured URL matched exactly; reachability, the Bludit API, and both
+  credentials were verified before writing. No other site was contacted.
+- Baseline: **14 pages** (3 published, 10 drafts, 1 static), with every page key and
+  revision recorded before any write. All 14 revisions were unchanged afterwards.
+- Bludit version and PHP version remain undisclosed by the host/API.
+
+### Artifact under test
+
+- Downloaded release asset `bludit-wizard-mcp-1.0.0.tgz`.
+- SHA-256 `4b0d1979f2be98f6937a3b68af19f9b18537ee26680ae048d643bc8b0dcf87e5`
+  — matched.
+- Installed into a clean temporary prefix with `npm install --prefix`.
+- `--version` → `1.0.0`; MCP `initialize` → `bludit-wizard-mcp` 1.0.0;
+  `tools/list` → **19 tools**; no deletion tool; standalone stdio client.
+- The local development build was not used.
+
+### New disposable drafts
+
+| Page | Title | Type | Created revision | Final revision |
+|---|---|---|---|---|
+| A | `BW-V100-FINAL-20261023-A` | draft | `407d4bf5450e24aa…` | `ffde4f612b9912cd…` |
+| B | `BW-V100-FINAL-20261023-B` | draft | `560b5a17d229f09b…` | `f576a3260ff03314…` |
+
+Keys: `bw-v100-final-20261023-a` and `bw-v100-final-20261023-b`.
+
+### Workflow results (page A)
+
+1. **Create** — `create_page` returned `ok: true`, `verified: true`, type `draft`,
+   revision `407d4bf5…`.
+2. **Read** — `get_page` returned the exact title and body.
+3. **Propose** — `propose_page_edit` created `prop_local_1`, pinned to
+   `407d4bf5…`, `pageKey` = page A.
+4. **Preview** — `preview_page_changes` reported `wouldChange: true`, +2/−0 lines,
+   no field changes.
+5. **Preview did not write** — the page revision was still `407d4bf5…`.
+6. **Apply** — `apply_approved_edit` with `confirm: true` returned `ok: true`,
+   `verified: true`, revision `407d4bf5…` → `f0712bba…`.
+7. **Read back** — the proposed sentence persisted.
+8. **Verify** — `verify_page_update` passed revision, title, type and
+   `content_contains`.
+9. **Replay** — reapplying `prop_local_1` returned `conflict`
+   (“This proposal has already been applied.”).
+10. **Direct edit** — `edit_page` with the current expected revision appended text
+    and returned `verified: true`, revision `f0712bba…` → `ffde4f61…`.
+11. **Direct edit persisted** — both the proposed and direct-edit sentences were
+    present; `verify_page_update` passed.
+12. **Stale edit** — `edit_page` with the now-stale `f0712bba…` was refused with
+    `revision_mismatch`; the revision and content did not change.
+
+### Cross-page isolation (page B)
+
+- `propose_page_edit` created `prop_local_2` with `pageKey`
+  `bw-v100-final-20261023-b` and base revision `560b5a17…`.
+- `apply_approved_edit` applied it to page B: revision `560b5a17…` → `f576a326…`,
+  and the B-only sentence persisted.
+- Page A's revision stayed `ffde4f61…` throughout the B apply. The apply tool takes
+  only a proposal id (no page selector), so applying a proposal to a different page
+  is not expressible through the tool surface; the binding was confirmed by the
+  proposal's `pageKey`, the apply result's key, and A's unchanged revision.
+
+### Integrity and security
+
+- **Pre-existing pages:** 14/14 revisions unchanged; no published page modified.
+- **Draft-only:** both new pages remain `type: draft`; published count is still 3;
+  total pages 16.
+- **No deletion:** no deletion tool exists; none was invoked.
+- **No settings change:** title `BLUDIT`, theme `alternative`,
+  `itemsPerPage 6` unchanged.
+- **Invalid API token:** `site_auth_failed`.
+- **Missing API token:** process refused to start.
+- **Missing user auth token on write:** `site_auth_failed`; the attempted title was
+  not created.
+- **Replay:** `conflict`.
+- **Stale revision:** `revision_mismatch`.
+- **Expired proposal:** isolated zero-TTL fixture returned `proposal_expired`.
+- **Wrong-page apply:** structurally unavailable; cross-page isolation verified as
+  above.
+- **Credential leakage:** the API token and auth token appeared in no tool response,
+  result artifact or stderr audit line. No password was used or requested.
+- **Hostile probes:** SSRF, redirect-to-metadata, malformed JSON, HTTP 500, timeout
+  and oversized-response tests were run only against local fixtures, against this
+  same published package, and all returned the documented structured errors.
+
+### Limitation restated
+
+Revision pinning prevents stale and replayed proposals, but it does not serialise
+two independent writers racing on the same revision; Bludit exposes no conditional
+write. No atomic multi-process write protection is claimed.
+
+### Final outcome
+
+**PASS** for the published Bludit Wizard MCP v1.0.0 against the authorized
+disposable Hostinger installation: 19/19 tools covered, the complete
+create → read → propose → preview → apply → verify workflow, direct editing, replay
+refusal, stale-revision refusal, cross-page isolation, draft-only integrity, and
+unchanged pre-existing content. No MCP server defect was found. No release, tag,
+runtime code or configuration change was made.

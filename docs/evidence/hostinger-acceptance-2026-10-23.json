@@ -1,0 +1,67 @@
+{
+  "report": "docs/HOSTINGER_ACCEPTANCE_REPORT.md",
+  "date": "2026-10-23",
+  "release": "1.0.0",
+  "package": "bludit-wizard-mcp-1.0.0.tgz",
+  "sha256": "4b0d1979f2be98f6937a3b68af19f9b18537ee26680ae048d643bc8b0dcf87e5",
+  "site": "https://lightsalmon-caribou-519069.hostingersite.com",
+  "toolCount": 19,
+  "deletionTool": false,
+  "pages": {
+    "a": {
+      "key": "bw-v100-final-20261023-a",
+      "type": "draft",
+      "createdRevision": "407d4bf5450e24aadfb70d97f106fd47c6b5bbcb1e63f7ad24046af2507f491d",
+      "afterProposal": "f0712bba98e0105355558954c2f787b9c9d355f1b38a9d9a48792df5e2a7a9cc",
+      "afterDirectEdit": "ffde4f612b9912cd9346de260d1daa16e86a90f10b82198686cc7bcc209acec4"
+    },
+    "b": {
+      "key": "bw-v100-final-20261023-b",
+      "type": "draft",
+      "createdRevision": "560b5a17d229f09b336e7fccb8e07013e731cb73b83a5333042935883deee480",
+      "afterProposal": "f576a3260ff033149ea910c8b15b9303dd14c07727dff9cb45fab755e3b427a9"
+    }
+  },
+  "workflow": {
+    "create": true,
+    "read": true,
+    "propose": true,
+    "preview": true,
+    "previewNoWrite": true,
+    "apply": true,
+    "contentPersisted": true,
+    "verify": true,
+    "replayRefused": "conflict",
+    "replayCode": "conflict",
+    "directEdit": true,
+    "directEditPersisted": true,
+    "staleRefused": "revision_mismatch",
+    "staleNoWrite": true,
+    "crossPage": {
+      "proposalPageKey": "bw-v100-final-20261023-b",
+      "applyKey": "bw-v100-final-20261023-b",
+      "aUntouched": true
+    }
+  },
+  "integrity": {
+    "preexistingPages": 14,
+    "preexistingChanged": [],
+    "publishedCount": 3,
+    "draftsOnly": {
+      "A": "draft",
+      "B": "draft"
+    },
+    "noSettingsChange": true,
+    "noDeletion": true
+  },
+  "security": {
+    "invalidApi": "site_auth_failed",
+    "missingApi": "startup refused",
+    "missingAuthWrite": "site_auth_failed",
+    "replay": "conflict",
+    "stale": "revision_mismatch",
+    "expired": "proposal_expired",
+    "credentialLeak": false
+  },
+  "outcome": "PASS"
+}
