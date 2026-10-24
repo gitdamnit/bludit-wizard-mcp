@@ -4,6 +4,8 @@
 
 Released
 
+**Status: RELEASED / ACCEPTED / COMPLETE — Bludit Wizard MCP v1.0.0.**
+
 The local stdio edition is implemented, licensed, tested and published as a GitHub
 release (source tag plus tarball asset). The self-hosted HTTP transport remains
 designed only; the Cloudflare Workers transport is preserved but not deployed.
@@ -16,9 +18,9 @@ documents remain under `docs/`.
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
 - **Observed branch:** main
-- **Observed commit:** 7bfc3caede4678fe8a58fae42501731f022a6d45
+- **Observed commit:** ec65266114c9e3f713208df79fe418a4c1e6e617
 - **Observed working tree:** dirty
-- **Observed at:** 2026-10-23T20:29:04Z
+- **Observed at:** 2026-10-24T03:01:32Z
 <!-- prodoc:observed:end -->
 
 Work happened in a dedicated Git worktree at
@@ -74,6 +76,14 @@ session. See decision D-0012.
   nineteen tools over stdio. The release repository clone is at the tag, is public,
   and contains no credentials. Evidence:
   <https://github.com/gitdamnit/bludit-wizard-mcp/releases/tag/v1.0.0>.
+- **Verification:** commit `ec65266` — final independent acceptance of the published
+  v1.0.0 package against the authorized Hostinger Bludit installation: all 19 tools
+  covered, create → read → propose → preview → apply → verify on two new drafts,
+  direct edit, replay refusal, stale-revision refusal, cross-page isolation, 14/14
+  pre-existing page revisions unchanged, both new pages still drafts, no credential
+  leakage, and no MCP defect found. Evidence
+  `docs/HOSTINGER_ACCEPTANCE_REPORT.md`,
+  `docs/evidence/hostinger-acceptance-2026-10-23.json`.
 
 ## Completed Work
 
@@ -154,37 +164,43 @@ bugs later:
 
 ## Blockers
 
+**None blocking v1.0.0.** The release is published, verified and accepted. The
+following are non-blocking observations or optional future work, not unfinished
+release tasks:
+
 1. **Uncommitted hosting analysis in the legacy worktree.** Four files under
    `docs/hosting/` are modified and one (`PHP_ADAPTATION_ANALYSIS.md`) is untracked,
-   none of them by this work. The worktree is retained until that work is dealt with
-   and no active session depends on it. It does not block the release.
+   none of them by this work. The worktree is retained; it does not affect the
+   release.
 2. **Five files were committed accidentally by this session** in `7b89401` via a
-   `git add -A` (and one in `bfa4da8`). History was **not** rewritten to fix
-   attribution, per instruction. Those files are otherwise untouched. How to
-   attribute them still needs a decision.
-3. **The remote HTTP implementation is not authorised.** The design is delivered in
-   `docs/SELF_HOSTED_HTTP.md`; implementation awaits explicit approval and answers to
-   the five open questions in §14 of that document.
+   `git add -A` (and one in `bfa4da8`). History was not rewritten, per instruction.
+3. **The remote HTTP implementation is not authorised.** Design only, in
+   `docs/SELF_HOSTED_HTTP.md`.
 4. **Bludit Pro could not be live-tested**, because its archive is not publicly
    available. Unblocked by setting `PRO_ZIP`.
 5. **Only OpenCode has been verified as an MCP client**, and only over local stdio.
-   Other client products and the hosted transports remain unverified.
-6. **npm registry publication was not authorised** for this release; the package is
-   distributed as a GitHub release asset with `private: true` retained.
+6. **npm registry publication was not authorised**; the package is distributed as a
+   GitHub release asset with `private: true` retained (D-0010).
 
 ## Next Actions
 
-1. Resolve blocker 2 — agree how to attribute the accidentally committed files.
-2. Decide the three structural questions in `docs/SELF_HOSTED_HTTP.md` §14 before
-   any remote implementation begins.
-3. Run the live suite against Bludit Pro by supplying `PRO_ZIP`, to close the
-   Community-only gap.
-4. Verify additional MCP clients against the local stdio edition, and record each
+None for v1.0.0. The release is complete and accepted; no development is in progress.
+
+## Optional Future Enhancements
+
+None of these are outstanding v1.0.0 development tasks:
+
+1. Verify additional MCP clients against the local stdio edition and record each
    result.
-5. Decide whether `src/index.js` (upstream's stdio server) is deprecated in favour of
-   the local edition, and on what timeline.
-6. If npm publication is wanted later, flip `private: false` in a dedicated commit
-   and publish the verified tarball (decision D-0010).
+2. Publish to the npm registry, if wanted later: flip `private: false` in a
+   dedicated commit and publish the verified tarball (decision D-0010).
+3. Run the live suite against Bludit Pro by supplying `PRO_ZIP`.
+4. Improve multi-writer synchronization for the documented simultaneous-writer
+   limitation.
+5. Decide whether the optional self-hosted HTTP transport or hosted deployment
+   should be implemented.
+6. Decide whether `src/index.js` (upstream's stdio server) is deprecated in favour
+   of the local edition.
 
 ## Release Status
 
@@ -199,3 +215,34 @@ bugs later:
 
 No hosting service is operated for anyone. The Cloudflare Workers were validated
 with `wrangler deploy --dry-run` only; nothing was uploaded.
+
+## Project Completion
+
+**Bludit Wizard MCP v1.0.0 — COMPLETE.**
+
+Accepted milestones:
+
+- Implementation of the portable core and the local stdio edition.
+- All nineteen MCP tools implemented and documented, with no deletion tool and no
+  unattended publication.
+- Authentication boundaries, SSRF policy, response limits, timeouts and structured
+  error handling verified.
+- 438 hermetic tests, 9 Playwright tests and 18 Docker-backed live tests passed
+  (465 automated tests, zero failures).
+- GitHub repository published, GPL-3.0-only applied with the upstream MIT notice
+  retained, and the v1.0.0 release published with a verified package asset.
+- Published package installed from the GitHub release asset and verified:
+  version 1.0.0, nineteen tools, no deletion tool.
+- OpenCode integration verified end to end.
+- Final independent Hostinger acceptance passed: all nineteen tools, controlled
+  draft creation, proposal/preview/apply/verify, direct editing, replay and
+  stale-revision refusals, cross-page isolation, and preservation of all 14
+  pre-existing pages.
+
+Historical evidence: `docs/LIVE_ACCEPTANCE_REPORT.md`,
+`docs/HOSTINGER_ACCEPTANCE_REPORT.md`, and the JSON evidence files beside them.
+Known limitations remain documented in the README and acceptance reports; they are
+accepted for v1.0.0 and are not unfinished release work.
+
+No further v1.0.0 development is planned. Optional future enhancements are listed
+above.

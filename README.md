@@ -1,9 +1,15 @@
 # Bludit Wizard MCP
 
-A local-first [Model Context Protocol](https://modelcontextprotocol.io) server for
-[Bludit CMS](https://www.bludit.com). It gives MCP-compatible AI clients nineteen
-tools for reading, searching, drafting and editing the pages of a Bludit site you
-own — with a human review step before anything changes.
+**Local-first Model Context Protocol server for Bludit CMS.**
+
+**v1.0.0 · GPL-3.0-only · Public GitHub release**
+
+Bludit Wizard MCP connects compatible AI clients to
+[Bludit CMS](https://www.bludit.com) through a standalone MCP server, providing
+nineteen tools for discovering site information, retrieving and searching content,
+and performing controlled page-editing workflows. It gives MCP-compatible AI
+clients a direct line to the pages of a Bludit site you own — with a human review
+step before anything changes.
 
 Run it on your own computer. There is no account, no hosted service, no OAuth
 server, no database, and nobody else operating anything on your behalf. The server
@@ -28,6 +34,11 @@ reports what actually landed, verified by reading the page back.
 The server holds no model and performs no inference. It stores no page content. It
 keeps no database: one process serves one site from configuration, and proposals
 live in that process's memory.
+
+It is independent of the native **Bludit Wizard PHP plugin**: the two products
+serve different purposes, and this server neither requires nor installs the
+plugin. The optional Wizard extension key only enables the plugin's extra
+endpoints when a user already runs it.
 
 It is derived from [`bludit/bludit-mcp`](https://github.com/bludit/bludit-mcp) by
 Diego Najar (MIT). The original six-tool stdio server is retained unchanged for
@@ -299,19 +310,23 @@ stderr in the OpenCode logs, then reload the session or restart OpenCode.
 
 ## Testing
 
-Final verification for v1.0.0:
+Bludit Wizard MCP v1.0.0 passed **465 automated tests** across unit/integration,
+Playwright and Docker-backed live suites:
 
 - **438 hermetic tests** across 27 files — MCP protocol, all 19 tools, validation,
   authentication, SSRF, revisions, proposals, failure recovery, packaging helpers.
 - **9 Playwright browser tests** for the authorization-server pages.
 - **18 Docker-backed live tests** against a disposable Bludit Community 3.22.0
-  installation (12 hosted-transport compatibility tests, 6 local stdio tests),
-  0 failed.
-- **Live acceptance** against a disposable Bludit site through OpenCode: all 19
-  tools exercised, ~90 isolated positive/negative probes, read-only and write
-  workflows, restart and concurrency behaviour.
+  installation (12 hosted-transport compatibility, 6 local stdio), 0 failed.
 
-The acceptance report and its machine-readable evidence are in
+The published release package also passed independent end-to-end acceptance
+testing against a Hostinger-hosted Bludit installation, including all nineteen
+tools and controlled page-editing workflows. See
+[`docs/HOSTINGER_ACCEPTANCE_REPORT.md`](docs/HOSTINGER_ACCEPTANCE_REPORT.md) and
+[`docs/evidence/hostinger-acceptance-2026-10-23.json`](docs/evidence/hostinger-acceptance-2026-10-23.json).
+
+Earlier live acceptance evidence (OpenCode integration, 19 tools, restart and
+concurrency behaviour) is in
 [`docs/LIVE_ACCEPTANCE_REPORT.md`](docs/LIVE_ACCEPTANCE_REPORT.md) and
 `docs/evidence/live-acceptance-2026-10-17.json`.
 
